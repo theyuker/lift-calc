@@ -1,0 +1,1990 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>
+<title>מחשבון פיר מעלית</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700&family=Heebo:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: app shell — sticky glass top bar; floating control panel at the side; result as one large card
+   (key-figure tiles, 3D stage + engineering plan, specs, notes); alternatives as a card grid */
+:root{
+  --bg:#eef1f5; --bg-glow:#dfe7f3; --surface:#ffffff; --surface-2:#f3f5f9; --surface-3:#e8ecf2;
+  --ink:#0d1420; --ink-2:#2b3646; --muted:#677385; --line:#e2e7ee; --line-2:#d3dae4;
+  --accent:#3554d1; --accent-soft:#e9edfc;
+  --cut:#d9480f; --cut-soft:#fff0e6; --ok:#13865c; --ok-soft:#e3f6ee; --warn:#b26b00; --warn-soft:#fff5dc;
+  --wall:#c9d1db; --hatch:#a3afbd; --car:#eef3ff; --cwt:#4a5566;
+  --stage-a:#f8fafc; --stage-b:#dde4ee;
+  --shadow:0 1px 2px rgba(13,20,32,.04),0 8px 24px -8px rgba(13,20,32,.10);
+  --shadow-lg:0 2px 4px rgba(13,20,32,.04),0 24px 48px -16px rgba(13,20,32,.18);
+  --m-grlp:#0e9384; --m-grl2:#3554d1; --m-grl4:#1d2f7a; --m-grl:#7a3fe0; --m-grl2r:#c0279c;
+  --f-display:"Rubik","Heebo","Segoe UI",Arial,sans-serif;
+  --f-body:"Heebo","Segoe UI",Arial,sans-serif;
+  --f-num:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --r-lg:20px; --r-md:14px; --r-sm:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#090c12; --bg-glow:#131b2c; --surface:#11161f; --surface-2:#171d28; --surface-3:#1f2733;
+  --ink:#e8eef6; --ink-2:#c3cddb; --muted:#8793a5; --line:#1f2733; --line-2:#2a3341;
+  --accent:#7d93ff; --accent-soft:#1b2347;
+  --cut:#ff8a4c; --cut-soft:#3a1e10; --ok:#4fd19b; --ok-soft:#10291f; --warn:#f5b942; --warn-soft:#33270b;
+  --wall:#2b3542; --hatch:#46525f; --car:#18213a; --cwt:#a6b2c2;
+  --stage-a:#161d29; --stage-b:#0b0f16;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -8px rgba(0,0,0,.5);
+  --shadow-lg:0 2px 4px rgba(0,0,0,.4),0 24px 48px -16px rgba(0,0,0,.6);
+  --m-grlp:#2ec4b0; --m-grl2:#7d93ff; --m-grl4:#a9b8ff; --m-grl:#b28cff; --m-grl2r:#f07ccf; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#090c12; --bg-glow:#131b2c; --surface:#11161f; --surface-2:#171d28; --surface-3:#1f2733;
+  --ink:#e8eef6; --ink-2:#c3cddb; --muted:#8793a5; --line:#1f2733; --line-2:#2a3341;
+  --accent:#7d93ff; --accent-soft:#1b2347;
+  --cut:#ff8a4c; --cut-soft:#3a1e10; --ok:#4fd19b; --ok-soft:#10291f; --warn:#f5b942; --warn-soft:#33270b;
+  --wall:#2b3542; --hatch:#46525f; --car:#18213a; --cwt:#a6b2c2;
+  --stage-a:#161d29; --stage-b:#0b0f16;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -8px rgba(0,0,0,.5);
+  --shadow-lg:0 2px 4px rgba(0,0,0,.4),0 24px 48px -16px rgba(0,0,0,.6);
+  --m-grlp:#2ec4b0; --m-grl2:#7d93ff; --m-grl4:#a9b8ff; --m-grl:#b28cff; --m-grl2r:#f07ccf; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:radial-gradient(1200px 520px at 85% -10%,var(--bg-glow),transparent 70%),var(--bg);background-attachment:fixed;color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;padding-inline:16px;padding-block:0 48px;-webkit-font-smoothing:antialiased}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.num,dd:not(.txt),td.num{direction:ltr;unicode-bidi:isolate}
+dd:not(.txt){text-align:left}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin-inline:-16px;padding:12px 16px;backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:1440px;margin-inline:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(140deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#000));display:grid;place-items:center;box-shadow:0 6px 16px -6px var(--accent)}
+.logo svg{width:20px;height:20px}
+.brand h1{font-family:var(--f-display);font-size:19px;font-weight:700;margin:0;letter-spacing:-.01em;line-height:1.1}
+.brand p{margin:0;font-size:12.5px;color:var(--muted)}
+.chip-db{margin-inline-start:auto;font-size:12.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:5px 12px;display:inline-flex;gap:6px;align-items:center;box-shadow:var(--shadow)}
+.chip-db i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.wrap{max-width:1440px;margin-inline:auto;display:grid;gap:20px;padding-top:20px}
+.main{display:grid;grid-template-columns:330px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:960px){.main{grid-template-columns:1fr}}
+form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;display:grid;gap:16px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 80px);max-height:calc(100vh - 96px);overflow:auto;box-shadow:var(--shadow);scrollbar-width:thin}
+@media (max-width:960px){form{position:static;max-height:none}}
+fieldset{border:0;padding:0;margin:0;display:grid;gap:10px}
+.sec-t{font-family:var(--f-display);font-size:13px;font-weight:600;color:var(--ink);margin:0;display:flex;align-items:center;gap:8px}
+.sec-t::before{content:"";width:4px;height:14px;border-radius:2px;background:var(--accent)}
+.sec-t .hint{font-family:var(--f-body);font-weight:400}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:grid;gap:5px;font-size:12.5px;color:var(--muted);font-weight:500;min-width:0}
+input,select{font:inherit;font-family:var(--f-num);font-size:15px;font-weight:500;padding:9px 12px;border:1px solid transparent;border-radius:var(--r-sm);background:var(--surface-2);color:var(--ink);width:100%;min-width:0;transition:border-color .15s,background .15s,box-shadow .15s}
+input:hover,select:hover{border-color:var(--line-2)}
+input:focus,select:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 4px var(--accent-soft)}
+input::placeholder{color:var(--muted);font-family:var(--f-body);font-size:13px;font-weight:400}
+select{font-family:var(--f-body);appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:left 16px center,left 11px center;background-size:5px 5px;background-repeat:no-repeat;padding-inline-start:28px}
+button:focus-visible,summary:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:flex;padding:3px;gap:2px;background:var(--surface-2);border-radius:12px}
+.seg label{flex:1;display:flex;justify-content:center;align-items:center;border-radius:9px;padding:7px 8px;cursor:pointer;font-size:13px;color:var(--ink-2);font-weight:500;text-align:center;transition:background .15s,color .15s,box-shadow .15s}
+.seg label:hover{color:var(--ink)}
+.seg label:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.seg input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.seg label:has(input:checked){background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(13,20,32,.08),0 2px 8px -2px rgba(13,20,32,.14);font-weight:600}
+.check{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--ink-2)}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.more{display:grid;border-top:1px solid var(--line);padding-top:14px;gap:4px}
+.opt{border-radius:var(--r-sm);transition:background .15s}
+.opt[open]{background:var(--surface-2)}
+.opt>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:9px 10px;font-size:13.5px;font-weight:500;border-radius:var(--r-sm)}
+.opt>summary:hover{background:var(--surface-2)}
+.opt>summary::-webkit-details-marker{display:none}
+.opt>summary::after{content:"";width:7px;height:7px;border-inline-end:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s;margin-inline-start:4px;margin-top:-3px}
+.opt[open]>summary::after{transform:rotate(225deg);margin-top:3px}
+.opt>summary .val{color:var(--muted);margin-inline-start:auto;font-size:12px;font-weight:400}
+.opt>summary .val.set{color:var(--accent);font-weight:600;background:var(--accent-soft);padding:1px 8px;border-radius:99px}
+.opt>div{display:grid;gap:10px;padding:2px 10px 12px}
+.opt[open] input,.opt[open] select,.opt[open] .seg{background:var(--surface)}
+.opt[open] .seg label:has(input:checked){background:var(--surface-3)}
+.results{display:grid;gap:18px;min-width:0}
+.tabs{display:flex;gap:2px;padding:3px;background:var(--surface-2);border-radius:12px;margin-inline-start:18px}
+.tabs button{border:0;background:transparent;padding:7px 16px;border-radius:9px;font-weight:500;color:var(--ink-2)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(13,20,32,.12)}
+@media (max-width:640px){.tabs{order:3;margin-inline-start:0;width:100%}.tabs button{flex:1}}
+.screen{display:block}
+.mtbl{padding:0 22px}
+.mtbl input{padding:7px 8px;font-size:14px;min-width:64px}
+.mtbl td{padding:4px 4px}
+.mtbl td.calc{color:var(--muted);text-align:center}
+td.cutc{color:var(--cut);font-weight:700}
+td.muted{color:var(--muted)}
+table.ord th{color:var(--muted);font-weight:500;font-size:11.5px;white-space:normal}
+table.ord td{white-space:normal;font-family:var(--f-num);font-size:12.5px}
+.ofiles{display:flex;gap:8px;flex-wrap:wrap}
+.filebtn{display:inline-flex;align-items:center;font-size:13px;font-weight:500;padding:8px 14px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);cursor:pointer}
+.export{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:0 22px 18px}
+.export input{max-width:260px;font-family:var(--f-body)}
+.export .go{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.export .go:hover:not(:disabled){background:var(--accent);filter:brightness(1.08)}
+.pdfst{font-size:12.5px;color:var(--muted)} .pdfst.ok{color:var(--ok)} .pdfst.warn{color:var(--warn)}
+.lifts2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.vplan svg{max-height:760px}
+.summary{display:flex;flex-wrap:wrap;gap:8px}
+.summary span{font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px 12px}
+.summary b{color:var(--ink);font-weight:600}
+.hero{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);display:grid;min-width:0;box-shadow:var(--shadow-lg);overflow:hidden;position:relative}
+.hero::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:linear-gradient(90deg,var(--mc),color-mix(in srgb,var(--mc) 30%,transparent))}
+.bar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 14px;padding:24px 22px 6px}
+.bar .t{display:grid;gap:8px;min-width:0}
+.rank{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--mc);display:flex;align-items:center;gap:6px}
+.rank::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--mc);box-shadow:0 0 0 3px color-mix(in srgb,var(--mc) 20%,transparent)}
+.bar h2{margin:0;font-family:var(--f-display);font-size:36px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.bar h2 small{font-size:14px;color:var(--muted);font-weight:500;font-family:var(--f-body);margin-inline-start:8px;letter-spacing:0}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.nav{margin-inline-start:auto;display:flex;gap:6px;align-items:center}
+.nav .cnt{font-size:12.5px;color:var(--muted);padding-inline:6px}
+button{font:inherit;font-size:13px;font-weight:500;padding:8px 14px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);cursor:pointer;transition:background .15s,border-color .15s,transform .1s,box-shadow .15s}
+button:hover:not(:disabled){background:var(--surface-2)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.35;cursor:default}
+.icon-btn{width:38px;height:38px;padding:0;display:grid;place-items:center;border-radius:12px}
+.icon-btn svg{width:16px;height:16px}
+.pill{font-size:12px;font-weight:500;padding:3px 10px;border-radius:99px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.pm{color:#fff;background:var(--mc)}
+.p-std{color:var(--ok);background:var(--ok-soft)}
+.p-warn{color:var(--warn);background:var(--warn-soft)}
+.p-cut{color:var(--cut);background:var(--cut-soft)}
+.p-mut{color:var(--ink-2);background:var(--surface-3)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:16px 22px 20px}
+@media (max-width:720px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px;display:grid;gap:2px;min-width:0}
+.kpi>span{font-size:12px;color:var(--muted);font-weight:500}
+.kpi b{font-family:var(--f-num);font-size:22px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi b small{font-size:12px;color:var(--muted);font-weight:500;font-family:var(--f-body);margin-inline-start:5px;letter-spacing:0}
+.views{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:12px;padding:0 22px 22px}
+@media (max-width:1150px){.views{grid-template-columns:1fr}}
+.v3d{position:relative;border-radius:var(--r-md);background:radial-gradient(120% 90% at 50% 15%,var(--stage-a),var(--stage-b));min-height:500px;touch-action:none;cursor:grab;overflow:hidden;border:1px solid var(--line)}
+.v3d canvas{display:block;width:100%!important;height:100%!important;position:absolute;inset:0}
+.v3d .lbl{position:absolute;inset-inline-start:12px;bottom:10px;font-size:11.5px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 70%,transparent);backdrop-filter:blur(6px);padding:4px 10px;border-radius:99px}
+.v3d .cams{position:absolute;inset-inline-end:12px;top:12px;display:flex;padding:3px;gap:2px;border-radius:12px;background:color-mix(in srgb,var(--surface) 75%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line)}
+.v3d .cams button{font-size:12px;padding:5px 12px;border:0;background:transparent;border-radius:9px}
+.v3d .cams button.on{background:var(--surface);box-shadow:0 1px 3px rgba(13,20,32,.15);font-weight:600}
+.vtag{position:absolute;inset-inline-start:12px;top:12px;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.04em;pointer-events:none}
+.vplan{position:relative;border-radius:var(--r-md);border:1px solid var(--line);background:var(--surface);padding:32px 8px 8px;min-width:0;display:grid;align-content:center}
+.vplan svg{width:100%;height:auto;display:block;max-height:640px}
+.body{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:24px;padding:20px 22px 24px;border-top:1px solid var(--line)}
+@media (max-width:1150px){.body{grid-template-columns:1fr}}
+.specs-t{font-family:var(--f-display);font-size:14px;font-weight:600;margin:0 0 6px}
+dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px;margin:0}
+@media (max-width:560px){dl{grid-template-columns:1fr}}
+dl div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line);min-width:0}
+dt{font-size:13px;color:var(--muted)}
+dd{margin:0;font-family:var(--f-num);font-size:14px;font-weight:500;text-align:end}
+dd.txt{font-family:var(--f-body)}
+.side{display:grid;gap:12px;align-content:start;min-width:0}
+.notes{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.notes li{font-size:13.5px;padding:9px 12px;border-radius:var(--r-sm);background:var(--surface-2);color:var(--ink-2);border-inline-start:3px solid var(--line-2)}
+.notes li.cut{background:var(--cut-soft);color:var(--cut);border-color:var(--cut)}
+.notes li.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.refs{font-size:12.5px;color:var(--muted);line-height:1.7}
+.refs b{color:var(--ink);font-weight:500}
+.cfg{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:var(--r-md);background:linear-gradient(120deg,var(--accent-soft),transparent);border:1px solid var(--line);text-decoration:none;color:var(--ink);font-weight:500;font-size:13.5px;transition:border-color .15s}
+.cfg:hover{border-color:var(--accent)}
+.cfg span{color:var(--accent)}
+.alts{display:grid;gap:12px}
+.alts-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;cursor:pointer;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 18px;box-shadow:var(--shadow)}
+.alts-h::-webkit-details-marker{display:none}
+.alts-h h3::before{content:'＋ ';color:var(--accent)}
+.alts[open] .alts-h h3::before{content:'－ '}
+.alts[open]{display:grid;gap:12px}
+.alts-h h3{margin:0;font-family:var(--f-display);font-size:16px;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;background:var(--mc);display:inline-block}
+.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.alt{position:relative;display:grid;gap:8px;align-content:start;text-align:start;width:100%;padding:16px 16px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow);overflow:hidden}
+.alt::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--mc)}
+.alt:hover:not(:disabled){transform:translateY(-2px);box-shadow:var(--shadow-lg);background:var(--surface)}
+.alt.on{border-color:var(--mc);box-shadow:0 0 0 1px var(--mc),var(--shadow-lg)}
+.alt .top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.alt .sz{font-family:var(--f-display);font-size:20px;font-weight:700;letter-spacing:-.01em}
+.alt .i{font-family:var(--f-num);font-size:12px;color:var(--muted)}
+.alt .meta{font-size:12.5px;color:var(--muted)}
+.alt .pills .pill{font-size:11px;padding:2px 8px}
+.empty{background:var(--surface);border:1px dashed var(--line-2);border-radius:var(--r-lg);padding:28px;color:var(--muted);line-height:1.8}
+.empty b{color:var(--ink);font-family:var(--f-display);font-size:16px;display:block;margin-bottom:4px}
+details.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 20px;box-shadow:var(--shadow)}
+details.box>summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:14.5px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;font-size:12.5px;width:100%}
+th{font-weight:600;color:var(--muted);font-size:11.5px;letter-spacing:.03em}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:start;white-space:nowrap}
+tr:hover td{background:var(--surface-2)}
+td.num{font-family:var(--f-num)}
+a{color:var(--accent)}
+[hidden]{display:none!important}
+.hero{animation:rise .35s ease both}
+@keyframes rise{from{opacity:.6;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* ===== theme v10 — "living" layer: teal + coral, soft glass cards, coloured tiles, gradient header =====
+   Layout concept: colourful header band with the screen switcher; airy cards floating on a soft two-tone backdrop. */
+:root{
+  --bg:#eef5f4; --bg-glow:#cfeee6; --bg-glow2:#ffe3d1; --surface:#ffffff; --surface-2:#f1f7f6; --surface-3:#e1efec;
+  --ink:#0b1d26; --ink-2:#264049; --muted:#5d727a; --line:#dde9e7; --line-2:#c6dbd7;
+  --accent:#0e7c6b; --accent-2:#14a38b; --accent-soft:#d8f2eb; --coral:#ff7a45; --coral-soft:#ffe9dd; --indigo:#4f5bd5; --indigo-soft:#e6e8fb; --amber:#e8a015; --amber-soft:#fdf1d6;
+  --m-grlp:#0e7c6b; --m-grl2:#4f5bd5; --m-grl4:#25307a; --m-grl:#a24bd6; --m-grl2r:#d1438f;
+  --head-a:#0c6e60; --head-b:#0f8f7b; --head-c:#14a38b;
+  --shadow:0 1px 2px rgba(11,29,38,.05),0 10px 30px -12px rgba(11,29,38,.16);
+  --shadow-lg:0 2px 6px rgba(11,29,38,.05),0 28px 60px -24px rgba(11,29,38,.28);
+  --r-lg:24px; --r-md:16px; --r-sm:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#071315; --bg-glow:#0c3a33; --bg-glow2:#3a1f12; --surface:#0f1f22; --surface-2:#13282b; --surface-3:#1a3337;
+  --ink:#e7f3f1; --ink-2:#bcd3cf; --muted:#86a2a0; --line:#1b3236; --line-2:#26454a;
+  --accent:#2dd4b0; --accent-2:#5eead4; --accent-soft:#0f3a33; --coral:#ff9466; --coral-soft:#3b2116; --indigo:#8d97ff; --indigo-soft:#1d2250; --amber:#f5bd4a; --amber-soft:#33270b;
+  --m-grlp:#2dd4b0; --m-grl2:#8d97ff; --m-grl4:#b4bcff; --m-grl:#c792f0; --m-grl2r:#f282bf;
+  --head-a:#0a3d37; --head-b:#0d544b; --head-c:#11695d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#071315; --bg-glow:#0c3a33; --bg-glow2:#3a1f12; --surface:#0f1f22; --surface-2:#13282b; --surface-3:#1a3337;
+  --ink:#e7f3f1; --ink-2:#bcd3cf; --muted:#86a2a0; --line:#1b3236; --line-2:#26454a;
+  --accent:#2dd4b0; --accent-2:#5eead4; --accent-soft:#0f3a33; --coral:#ff9466; --coral-soft:#3b2116; --indigo:#8d97ff; --indigo-soft:#1d2250; --amber:#f5bd4a; --amber-soft:#33270b;
+  --m-grlp:#2dd4b0; --m-grl2:#8d97ff; --m-grl4:#b4bcff; --m-grl:#c792f0; --m-grl2r:#f282bf;
+  --head-a:#0a3d37; --head-b:#0d544b; --head-c:#11695d; color-scheme:dark}
+
+body{background:
+  radial-gradient(900px 520px at 100% 0%,var(--bg-glow),transparent 65%),
+  radial-gradient(800px 480px at 0% 30%,var(--bg-glow2),transparent 60%),
+  var(--bg);background-attachment:fixed}
+
+/* header band */
+.topbar{background:linear-gradient(120deg,var(--head-a),var(--head-b) 55%,var(--head-c));border-bottom:0;color:#fff;
+  box-shadow:0 10px 30px -18px rgba(12,110,96,.8);backdrop-filter:none;-webkit-backdrop-filter:none;position:sticky;overflow:hidden}
+.topbar::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.12;
+  background:repeating-linear-gradient(90deg,#fff 0 2px,transparent 2px 120px)}
+.topbar .in{position:relative;z-index:1}
+.logo{background:#fff;box-shadow:0 6px 18px -6px rgba(0,0,0,.35)}
+.logo svg{stroke:var(--head-a)}
+.brand h1{color:#fff;font-size:20px}
+.brand p{color:rgba(255,255,255,.78)}
+.tabs{background:rgba(255,255,255,.14);border-radius:14px;padding:4px}
+.tabs button{color:rgba(255,255,255,.9);border-radius:11px;padding:8px 18px;transition:background .2s,color .2s,transform .15s}
+.tabs button:hover:not([aria-selected="true"]){background:rgba(255,255,255,.12)}
+.tabs button[aria-selected="true"]{background:#fff;color:var(--head-a);box-shadow:0 6px 16px -8px rgba(0,0,0,.45)}
+.chip-db{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.25);color:#fff;box-shadow:none}
+.chip-db i{background:#7cf5d6;box-shadow:0 0 0 3px rgba(124,245,214,.25)}
+
+/* cards */
+form,.hero,details.box,.alts-h,.alt,.empty{border:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+form{border-radius:var(--r-lg);box-shadow:var(--shadow);background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(8px)}
+.hero{border-radius:var(--r-lg);animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+.hero::before{height:5px;background:linear-gradient(90deg,var(--mc,var(--accent)),var(--coral))}
+.bar{background:linear-gradient(180deg,color-mix(in srgb,var(--mc,var(--accent)) 7%,transparent),transparent)}
+.bar h2{font-size:38px}
+.rank{padding:3px 10px;border-radius:99px;background:color-mix(in srgb,var(--mc,var(--accent)) 12%,transparent)}
+.sec-t::before{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--coral))}
+
+/* coloured key-figure tiles */
+.kpi{position:relative;overflow:hidden;border-radius:var(--r-md);padding:14px 16px;transition:transform .2s}
+.kpi:hover{transform:translateY(-2px)}
+.kpi::after{content:"";position:absolute;inset-inline-end:-18px;top:-18px;width:64px;height:64px;border-radius:50%;opacity:.5}
+.kpi:nth-child(1){background:var(--accent-soft)} .kpi:nth-child(1)::after{background:var(--accent)} .kpi:nth-child(1) b{color:var(--accent)}
+.kpi:nth-child(2){background:var(--coral-soft)} .kpi:nth-child(2)::after{background:var(--coral)} .kpi:nth-child(2) b{color:var(--coral)}
+.kpi:nth-child(3){background:var(--indigo-soft)} .kpi:nth-child(3)::after{background:var(--indigo)} .kpi:nth-child(3) b{color:var(--indigo)}
+.kpi:nth-child(4){background:var(--amber-soft)} .kpi:nth-child(4)::after{background:var(--amber)} .kpi:nth-child(4) b{color:color-mix(in srgb,var(--amber) 80%,var(--ink))}
+.kpi::after{opacity:.16}
+.kpi>span{color:var(--ink-2)}
+.kpi b{font-size:24px}
+
+/* inputs */
+input,select{background:var(--surface);border:1.5px solid var(--line-2);border-radius:var(--r-sm)}
+input:hover,select:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line-2))}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent)}
+.seg{background:var(--surface-2);border-radius:14px;padding:4px}
+.seg label{border-radius:10px;transition:background .2s,color .2s,box-shadow .2s}
+.seg label:has(input:checked){background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 6px 16px -8px var(--accent)}
+.opt[open]{background:var(--surface-2)}
+.opt>summary .val.set{background:var(--coral-soft);color:var(--coral)}
+
+/* buttons */
+button{border-radius:var(--r-sm);border:1.5px solid var(--line-2);transition:transform .15s,box-shadow .2s,background .2s,border-color .2s}
+button:hover:not(:disabled){border-color:var(--accent);background:var(--surface)}
+.export .go,#oSave{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;border:0;box-shadow:0 10px 22px -12px var(--accent)}
+.export .go:hover:not(:disabled),#oSave:hover{transform:translateY(-1px);box-shadow:0 14px 26px -12px var(--accent);filter:none}
+#addFl{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
+#delFl{background:var(--coral-soft);color:var(--coral);border-color:transparent;font-weight:600}
+.icon-btn{border-radius:50%;width:40px;height:40px}
+.filebtn{border-radius:var(--r-sm);border:1.5px solid var(--line-2)}
+.filebtn:hover{border-color:var(--accent)}
+
+/* measurement table */
+.mtbl table{border-collapse:separate;border-spacing:0 6px}
+.mtbl th{background:transparent;color:var(--muted);font-weight:600;font-size:12px}
+.mtbl td{background:var(--surface-2);border:0}
+.mtbl tr td:first-child{border-start-start-radius:12px;border-end-start-radius:12px}
+.mtbl tr td:last-child{border-start-end-radius:12px;border-end-end-radius:12px}
+.mtbl td:first-child input{font-weight:700;color:var(--accent);text-align:center;background:var(--accent-soft);border-color:transparent}
+.mtbl input{border-color:transparent;background:var(--surface)}
+.hero.meas::before{background:linear-gradient(90deg,var(--coral),var(--amber))}
+.hero.meas .rank{color:var(--coral);background:var(--coral-soft)}
+
+/* views */
+.v3d{border-radius:var(--r-md);border:0;box-shadow:inset 0 0 0 1px var(--line)}
+.vplan{border-radius:var(--r-md);border:0;box-shadow:inset 0 0 0 1px var(--line);background:var(--surface)}
+.vtag{background:var(--surface);padding:3px 10px;border-radius:99px;box-shadow:0 2px 8px -4px rgba(0,0,0,.2);color:var(--ink-2)}
+
+/* notes, pills, misc */
+.notes li{border-inline-start-width:4px;border-radius:12px}
+.pill{font-weight:600}
+.pm{box-shadow:0 4px 12px -6px var(--mc)}
+.p-std{background:var(--accent-soft);color:var(--accent)}
+.cfg{border-radius:var(--r-md);background:linear-gradient(120deg,var(--accent-soft),var(--coral-soft));border:0}
+.cfg span{color:var(--coral);font-size:18px}
+.alt{border-radius:var(--r-md)}
+.alt::before{height:4px}
+.alts-h{border-radius:var(--r-md)}
+.alts-h h3::before{color:var(--coral)}
+.summary span{border-radius:99px;background:color-mix(in srgb,var(--surface) 85%,transparent);border-color:transparent;box-shadow:0 2px 8px -4px rgba(11,29,38,.18)}
+.empty{border-style:dashed;border-width:2px;border-color:var(--line-2);background:color-mix(in srgb,var(--surface) 80%,transparent);position:relative;padding-inline-start:84px}
+.empty::before{content:"";position:absolute;inset-inline-start:24px;top:26px;width:40px;height:52px;border-radius:8px;border:3px solid var(--accent);
+  background:linear-gradient(90deg,transparent 47%,var(--accent) 47% 53%,transparent 53%)}
+td.cutc{color:var(--coral)}
+table.ord tr:nth-child(odd) td,table.ord tr:nth-child(odd) th{background:var(--surface-2)}
+.specs-t{font-size:15px}
+dl div{border-bottom-style:solid;border-bottom-color:var(--line)}
+@keyframes rise{from{opacity:0;transform:translateY(12px) scale(.995)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.hero,.kpi,button{animation:none!important;transition:none!important}}
+.hero{grid-template-columns:minmax(0,1fr)}
+.hero>*{min-width:0}
+.mtbl{overflow-x:auto}
+.mtbl input{min-width:72px}
+@media (max-width:640px){.bar h2{font-size:30px}.kpi b{font-size:20px}.export{padding-inline:16px}.mtbl{padding-inline:12px}}
+.body>*{min-width:0}
+table.ord{table-layout:fixed;width:100%}
+table.ord th{width:42%}
+table.ord td{word-break:break-word}
+
+/* v11: measurement form + technician phone mode */
+.techbtn{width:100%;margin-top:4px;background:linear-gradient(120deg,var(--accent),var(--accent-2));color:#fff;border:0;font-weight:700;padding:12px;border-radius:var(--r-sm)}
+.shaftkey{color:var(--ink-2);flex:0 0 auto;width:min(300px,100%)}
+.shaftkey svg,.tkey svg{width:100%;height:auto;display:block}
+.mtbl td.calc{white-space:nowrap;color:var(--ink-2)}
+.planrow td{background:var(--surface-2)}
+.planrow td:first-child{color:var(--muted);font-size:12px}
+.warnc{color:var(--coral);font-weight:700}
+.tri{display:inline-flex;gap:4px;flex:0 0 auto}
+.tri button{width:40px;height:36px;padding:0;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);color:var(--muted);font-size:17px;line-height:1}
+.tri.sm button{width:32px;height:30px;font-size:14px}
+.tri button.on.y{background:var(--accent);border-color:var(--accent);color:#fff}
+.tri button.on.n{background:var(--coral);border-color:var(--coral);color:#fff}
+.mextra{display:grid;gap:16px;padding:16px 24px 24px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.mgrid>*{min-width:0}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.row3.planned{margin-top:8px;opacity:.8}
+.row3.planned label{font-size:11px}
+ul.chk{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+ul.chk li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.notesl textarea{width:100%;box-sizing:border-box;font:inherit;border-radius:var(--r-sm);border:1px solid var(--line-2);background:var(--surface);color:var(--ink);padding:10px}
+.photos{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.photos figure{margin:0;position:relative;width:96px;height:96px;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.photos img{width:100%;height:100%;object-fit:cover}
+.photos figure button{position:absolute;top:4px;inset-inline-end:4px;width:26px;height:26px;padding:0;border-radius:99px;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:16px}
+.addph{display:inline-flex;align-items:center;justify-content:center;width:96px;height:96px;border-radius:12px;border:2px dashed var(--line-2);color:var(--accent);font-weight:700;cursor:pointer}
+.pdfst.ok{color:var(--accent)} .pdfst.warn{color:var(--coral)}
+/* phone mode: only the form */
+body.techmode .topbar,body.techmode footer,body.techmode .wrap>details.box{display:none}
+.tech{max-width:560px;margin-inline:auto;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.tech-in{display:grid;gap:12px;padding:12px 0}
+.tech-h{display:flex;align-items:center;gap:12px;padding:8px 4px}
+.tech-h h1{margin:0;font-size:24px}
+.tech-h p{margin:0;color:var(--muted);font-size:13px}
+.tech-h .logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center}
+.tech-h .logo svg{width:26px;height:26px;stroke:#fff}
+.tcard{background:var(--surface);border-radius:var(--r-md);padding:14px;display:grid;gap:10px;box-shadow:0 6px 20px -14px rgba(11,29,38,.35)}
+.tcard>summary{font-weight:700;cursor:pointer;color:var(--ink-2)}
+details.tcard[open]>summary{margin-bottom:6px}
+.tech label{display:grid;gap:4px;font-size:13px;color:var(--ink-2)}
+.tech input[type=number],.tech input[type=text],.tech input[type=date]{font-size:18px;padding:10px 12px;min-height:46px;box-sizing:border-box;width:100%}
+.tgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tgrid label b{color:var(--accent);font-size:15px}
+.tkey{color:var(--ink-2);max-width:340px;margin-inline:auto;width:100%}
+.floor{border-inline-start:5px solid var(--accent)}
+.fh{display:flex;align-items:end;justify-content:space-between;gap:10px}
+.flname{max-width:120px}
+.finl{display:flex;align-items:center;gap:8px;color:var(--ink-2);font-size:13px}
+.calcline{margin:0}
+.tadd{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tadd button{min-height:46px}
+.tech ul.chk li{font-size:15px}
+.techbar{position:fixed;inset-inline:0;bottom:0;z-index:20;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);box-shadow:0 -6px 20px -12px rgba(11,29,38,.35)}
+.techbar button{min-height:48px;padding-inline:20px;font-weight:700}
+.techbar .go{background:var(--accent);color:#fff;border:0}
+.techbar .pdfst{flex-basis:100%;text-align:center;font-size:13px}
+.techbar .pdfst:empty{display:none}
+
+/* v12: letter chips in measurement labels, import doubts */
+.lt{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 4px;border-radius:7px;background:var(--accent-soft);color:var(--accent);font:700 13px/1 var(--f-num);direction:ltr;flex:0 0 auto}
+.lth{display:flex;flex-direction:column;align-items:center;gap:4px;line-height:1.2}
+.lh{display:flex;align-items:center;gap:8px;min-height:22px}
+.doubts{background:var(--amber-soft);border-radius:var(--r-sm);padding:10px 14px;color:var(--ink)}
+.doubts ul{margin:6px 0 0;padding-inline-start:18px;display:grid;gap:2px}
+
+/* v13: per-lift duplex sizes, plan zoom */
+.dupsides{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:10px}
+.dside{display:grid;gap:6px;align-content:start;background:var(--surface-2);border-radius:var(--r-sm);padding:10px}
+.dside .specs-t{margin:0}
+@media (max-width:420px){.dupsides{grid-template-columns:minmax(0,1fr)}}
+.vplan .pz{position:absolute;top:6px;inset-inline-end:8px;display:flex;gap:4px;z-index:2}
+.vplan .pz button{width:32px;height:32px;padding:0;border-radius:10px;font-size:18px;line-height:1;background:var(--surface);border:1px solid var(--line-2);color:var(--ink-2)}
+.vplan.zoomed svg{cursor:grab;touch-action:none}
+.vplan.zoomed svg:active{cursor:grabbing}
+.vplan svg{user-select:none;-webkit-user-select:none}
+
+/* v14: visual cutting report, duplex cabins in the order form */
+.cutv{direction:ltr;display:grid;gap:8px;margin-top:6px}
+.crow{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);gap:4px;align-items:stretch}
+.crow.dup{grid-template-columns:40px minmax(0,.9fr) minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,.9fr)}
+.cfl{display:grid;place-items:center;font-weight:700;color:var(--ink-2);background:var(--surface-2);border-radius:8px;direction:rtl}
+.cutv .wall,.cutv .op{direction:rtl;border-radius:8px;padding:6px 4px;text-align:center;display:grid;align-content:center;gap:2px;font-size:12px;min-width:0}
+.cutv .wall{background:repeating-linear-gradient(135deg,var(--surface-3) 0 6px,var(--surface-2) 6px 12px);color:var(--ink)}
+.cutv .wall.cut{box-shadow:inset 0 0 0 2px var(--coral)}
+.cutv .op{border:1px dashed var(--line-2);color:var(--muted)}
+.cutv .wn{font-size:11px;color:var(--muted)}
+.cutv .pf{display:grid;grid-template-columns:1fr 1fr;gap:2px;direction:ltr}
+.cutv .pf>div{display:grid;gap:2px;direction:rtl}
+.cutv small{display:block;font-size:10.5px;color:var(--muted)}
+.cv{color:var(--coral)} .okv{color:var(--accent)}
+.cnote{grid-column:2/-1;direction:rtl;font-size:12px;color:var(--ink-2)}
+#oDupCab .dupsides{margin-top:4px}
+</style>
+
+<div class="topbar" dir="rtl"><div class="in">
+  <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18"/><path d="M6.5 11l1.5-2 1.5 2M14.5 9l1.5 2 1.5-2"/></svg></div>
+  <div class="brand"><h1>מחשבון פיר מעלית</h1><p>עידן מעליות · Felesa</p></div>
+  <nav class="tabs" role="tablist" aria-label="מסכים">
+    <button type="button" role="tab" id="tabOrder" aria-selected="true">הזמנה ממדידה</button>
+    <button type="button" role="tab" id="tabFree" aria-selected="false">מחשבון חופשי</button>
+  </nav>
+  <span class="chip-db"><i></i>מבוסס על <b class="num" id="nproj"></b> פרויקטים</span>
+</div></div>
+
+<div class="wrap" dir="rtl">
+
+<section id="scrOrder" class="screen">
+<div class="main">
+<form id="fo" autocomplete="off">
+  <p class="sec-t">פרטי המדידה</p>
+  <label>פרויקט (באנגלית, יופיע בהזמנה)<input id="oPRJ" data-h="prj" type="text" placeholder="HERZL 10 - HAIFA" style="font-family:var(--f-body)"></label>
+  <div class="row2">
+    <label>תאריך<input id="oDATE" data-h="date" type="date"></label>
+    <label>שם המודד<input id="oNAME" data-h="measurer" type="text" style="font-family:var(--f-body)"></label>
+  </div>
+  <div class="seg" role="radiogroup" aria-label="סוג פיר">
+    <label><input type="radio" name="osm" value="single" checked>פיר יחיד</label>
+    <label><input type="radio" name="osm" value="duplex">דופלקס</label>
+  </div>
+  <button type="button" class="techbtn" id="oTech">פתח טופס מדידה לטלפון</button>
+  <p class="sec-t">דלת ופיקוד</p>
+  <div class="seg" role="radiogroup" aria-label="סוג פתיחה">
+    <label><input type="radio" name="odt" value="T2" checked>טלסקופית 2</label>
+    <label><input type="radio" name="odt" value="T3">טלסקופית 3</label>
+    <label><input type="radio" name="odt" value="C">מרכזית</label>
+  </div>
+  <div class="row2">
+    <label>פתח אור<select id="oCL"><option value="">מקסימלי</option><option>700</option><option>750</option><option>800</option><option>900</option><option>1000</option><option>1100</option></select></label>
+    <label>ארון פיקוד<select id="oCT"><option value="big">ארון גדול</option><option value="small">ארון קטן</option><option value="frame">במשקוף</option></select></label>
+  </div>
+<div id="oSingleCab">
+  <p class="sec-t">קבינה <span class="hint">ריק = מקסימום</span></p>
+  <div class="row2">
+    <label>רוחב פנים<input id="oCW" type="number" inputmode="numeric" placeholder="מקסימלי"></label>
+    <label>עומק פנים<input id="oCD" type="number" inputmode="numeric" placeholder="מקסימלי"></label>
+  </div>
+  <label>מספר נוסעים<select id="oPS"><option value="">מקסימום אפשרי</option></select></label>
+  </div>
+  <div id="oDupCab" hidden>
+  <p class="sec-t">קבינות <span class="hint">לכל מעלית בנפרד</span></p>
+  <div class="dupsides">
+    <div class="dside"><p class="specs-t">מעלית שמאל</p>
+      <select id="oLK" aria-label="גודל מעלית שמאל"><option value="">מקסימום אפשרי</option><option value="std6">סטנדרט 6 נוסעים · 1000×1250</option><option value="std8">סטנדרט 8 נוסעים · 1100×1400</option><option value="std10">סטנדרט 10 נוסעים · 1150×1550</option><option value="std13">סטנדרט 13 נוסעים · 1100×2100</option><option value="ps">לפי מספר נוסעים</option><option value="size">מידה קבועה</option></select>
+      <select id="oLPS" aria-label="נוסעים מעלית שמאל" hidden></select>
+      <div class="row2" id="oLSZ" hidden><label>רוחב פנים<input id="oLCW" type="number" inputmode="numeric" step="10"></label><label>עומק פנים<input id="oLCD" type="number" inputmode="numeric" step="10"></label></div>
+    </div>
+    <div class="dside"><p class="specs-t">מעלית ימין</p>
+      <select id="oRK" aria-label="גודל מעלית ימין"><option value="same">כמו שמאל</option><option value="">מקסימום אפשרי</option><option value="std6">סטנדרט 6 נוסעים · 1000×1250</option><option value="std8">סטנדרט 8 נוסעים · 1100×1400</option><option value="std10">סטנדרט 10 נוסעים · 1150×1550</option><option value="std13">סטנדרט 13 נוסעים · 1100×2100</option><option value="ps">לפי מספר נוסעים</option><option value="size">מידה קבועה</option></select>
+      <select id="oRPS" aria-label="נוסעים מעלית ימין" hidden></select>
+      <div class="row2" id="oRSZ" hidden><label>רוחב פנים<input id="oRCW" type="number" inputmode="numeric" step="10"></label><label>עומק פנים<input id="oRCD" type="number" inputmode="numeric" step="10"></label></div>
+    </div>
+  </div>
+  </div>
+  <p class="sec-t">מדידות שמורות</p>
+  <div class="ofiles">
+    <button type="button" id="oSaveDb">שמור במערכת</button>
+    <button type="button" id="oNew">מדידה חדשה</button>
+  </div>
+  <select id="oList" aria-label="מדידות שמורות"><option value="">טען מדידה שמורה…</option></select>
+  <div class="ofiles">
+    <button type="button" id="oSave">הורד כקובץ</button>
+    <label class="filebtn">טען מקובץ<input id="oLoad" type="file" accept=".json,.pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,image/*" hidden></label>
+  </div>
+  <p class="hint">טען מקובץ: מדידה שמורה (JSON), או כל טופס מדידה — PDF, Word, Excel, צילום או סריקה. המידות יזוהו וימולאו בטופס.</p>
+  <p class="hint" id="oFileSt" aria-live="polite"></p>
+</form>
+
+<div class="results">
+  <article class="hero meas">
+    <div class="bar"><div class="t"><span class="rank">שלב 1 · מדידה ראשונית</span><h2 style="font-size:24px">טופס מדידה</h2>
+      <p class="hint">מידות פנים במ"מ. כתף שאין — 0. שמאל/ימין כשעומדים בלובי מול הפיר.</p></div>
+      <div class="shaftkey" id="shKey"></div></div>
+    <div class="tbl mtbl"><table id="mt"></table></div>
+    <div class="export"><button type="button" id="addFl">+ קומה</button><button type="button" id="delFl">− קומה</button><span class="pdfst" id="mSum"></span></div>
+    <div class="mextra" id="mExtra"></div>
+  </article>
+  <div id="oOut"></div>
+</div>
+</div>
+</section>
+
+<section id="scrTech" class="screen tech" hidden>
+  <div class="tech-in" id="techIn"></div>
+  <div class="techbar">
+    <button type="button" class="go" id="tSave">שמור</button>
+    <button type="button" id="tDone">סיום — לתצוגה הרגילה</button>
+    <span class="pdfst" id="tSt" aria-live="polite"></span>
+  </div>
+</section>
+
+<section id="scrFree" class="screen" hidden>
+<div class="main">
+<form id="f" autocomplete="off">
+  <fieldset>
+    <p class="sec-t">מידות הפיר <span class="hint">פנים, מ"מ</span></p>
+    <div class="seg" role="radiogroup" aria-label="סוג פיר">
+      <label><input type="radio" name="sm" id="smS" value="single" checked>פיר יחיד</label>
+      <label><input type="radio" name="sm" id="smD" value="duplex">דופלקס (פיר משותף)</label>
+    </div>
+    <div class="row2">
+      <label>רוחב פיר<input id="W" type="number" inputmode="numeric" value="1750" step="5"></label>
+      <label>עומק פיר<input id="D" type="number" inputmode="numeric" value="1800" step="5"></label>
+    </div>
+    <div class="row2">
+      <label>כתף שמאל<input id="SL" type="number" inputmode="numeric" value="0" step="5"></label>
+      <label>כתף ימין<input id="SR" type="number" inputmode="numeric" value="0" step="5"></label>
+    </div>
+    <div id="dupwrap" hidden>
+      <div class="row2">
+        <label>פתח שמאל<input id="OL" type="number" inputmode="numeric" value="1600" step="5"></label>
+        <label>עמוד בין הפתחים<input id="PIL" type="number" inputmode="numeric" value="400" step="5"></label>
+      </div>
+      <div class="row2">
+        <label>קורה מפרידה<input id="BM" type="number" inputmode="numeric" value="100" step="5"></label>
+        <label>פתח ימין (מחושב)<input id="OR" type="text" readonly tabindex="-1"></label>
+      </div>
+      <div class="dupsides">
+      <div class="dside"><p class="specs-t">מעלית שמאל</p>
+        <select id="LK" aria-label="גודל מעלית שמאל"><option value="">מקסימום אפשרי</option><option value="std6">סטנדרט 6 נוסעים · 1000×1250</option><option value="std8">סטנדרט 8 נוסעים · 1100×1400</option><option value="std10">סטנדרט 10 נוסעים · 1150×1550</option><option value="std13">סטנדרט 13 נוסעים · 1100×2100</option><option value="ps">לפי מספר נוסעים</option><option value="size">מידה קבועה</option></select>
+        <select id="LPS" aria-label="נוסעים מעלית שמאל" hidden></select>
+        <div class="row2" id="LSZ" hidden><label>רוחב פנים<input id="LCW" type="number" inputmode="numeric" step="10"></label><label>עומק פנים<input id="LCD" type="number" inputmode="numeric" step="10"></label></div>
+      </div>
+      <div class="dside"><p class="specs-t">מעלית ימין</p>
+        <select id="RK" aria-label="גודל מעלית ימין"><option value="same">כמו שמאל</option><option value="">מקסימום אפשרי</option><option value="std6">סטנדרט 6 נוסעים · 1000×1250</option><option value="std8">סטנדרט 8 נוסעים · 1100×1400</option><option value="std10">סטנדרט 10 נוסעים · 1150×1550</option><option value="std13">סטנדרט 13 נוסעים · 1100×2100</option><option value="ps">לפי מספר נוסעים</option><option value="size">מידה קבועה</option></select>
+        <select id="RPS" aria-label="נוסעים מעלית ימין" hidden></select>
+        <div class="row2" id="RSZ" hidden><label>רוחב פנים<input id="RCW" type="number" inputmode="numeric" step="10"></label><label>עומק פנים<input id="RCD" type="number" inputmode="numeric" step="10"></label></div>
+      </div>
+      </div>
+    </div>
+    <p class="hint" id="shhint">שמאל/ימין כפי שעומדים בלובי מול הפיר.</p>
+  </fieldset>
+  <p class="sec-t">דלת ופיקוד</p>
+  <div class="row2">
+    <label>רוחב דלת (פתח אור)
+      <select id="CL">
+        <option value="">מקסימלי</option>
+        <option>650</option><option>700</option><option>750</option><option>800</option><option>900</option><option>1000</option><option>1100</option><option>1200</option>
+      </select>
+    </label>
+    <label>ארון פיקוד
+      <select id="CT"><option value="big">ארון גדול</option><option value="small">ארון קטן</option><option value="frame">במשקוף</option></select>
+    </label>
+  </div>
+
+  <div class="more">
+    <p class="sec-t">הגדרות נוספות <span class="hint">סגור = ברירת מחדל</span></p>
+    <details class="opt" id="o-st"><summary>מספר תחנות <span class="val" data-for="st"></span></summary><div>
+      <label>תחנות<input id="ST" type="number" inputmode="numeric" placeholder="5" min="2" max="40"></label>
+    </div></details>
+    <details class="opt" id="o-dt"><summary>סוג וכיוון פתיחה <span class="val" data-for="dt"></span></summary><div>
+      <div class="seg" role="radiogroup" aria-label="סוג פתיחה">
+        <label><input type="radio" name="dt" id="dtT2" value="T2" checked>טלסקופית 2</label>
+        <label><input type="radio" name="dt" id="dtT3" value="T3">טלסקופית 3</label>
+        <label><input type="radio" name="dt" id="dtC" value="C">מרכזית</label>
+      </div>
+      <label id="dirwrap">כיוון פתיחה (כשעומדים בלובי)
+        <select id="DIR"><option value="auto">לפי הכתפיים (אוטומטי)</option><option value="R">נפתחת לימין</option><option value="L">נפתחת לשמאל</option></select>
+      </label>
+    </div></details>
+    <details class="opt" id="o-en"><summary>כניסות <span class="val" data-for="en"></span></summary><div>
+      <div class="seg" role="radiogroup" aria-label="כניסות">
+        <label><input type="radio" name="en" id="en1" value="1" checked>כניסה אחת</label>
+        <label><input type="radio" name="en" id="en180" value="180">מעבר 180°</label>
+        <label><input type="radio" name="en" id="en90" value="90">90°</label>
+      </div>
+      <div id="rearwrap" hidden>
+        <p class="hint">כתפיים אחוריות — כשעומדים בלובי האחורי מול הפיר.</p>
+        <div class="row2">
+          <label>כתף שמאל אחורית<input id="RL" type="number" inputmode="numeric" placeholder="כמו בחזית" step="5"></label>
+          <label>כתף ימין אחורית<input id="RR" type="number" inputmode="numeric" placeholder="כמו בחזית" step="5"></label>
+        </div>
+      </div>
+      <div id="sidewrap" hidden>
+        <label>הכניסה השנייה בקיר
+          <select id="S90"><option value="R">ימין</option><option value="L">שמאל</option></select>
+        </label>
+        <div class="row2">
+          <label>כתף לכיוון החזית<input id="SF" type="number" inputmode="numeric" placeholder="ללא" step="5"></label>
+          <label>כתף לכיוון הגב<input id="SB" type="number" inputmode="numeric" placeholder="ללא" step="5"></label>
+        </div>
+        <p class="hint">90° — רוגזק בלבד. המסילות בקיר שמול הכניסה השנייה.</p>
+      </div>
+    </div></details>
+    <details class="opt" id="o-ps"><summary>מספר נוסעים <span class="val" data-for="ps"></span></summary><div>
+      <select id="PS" aria-label="מספר נוסעים"><option value="">מקסימום אפשרי</option></select>
+    </div></details>
+    <details class="opt" id="o-mx"><summary>מקסימום לפי <span class="val" data-for="mx"></span></summary><div>
+      <div class="seg" role="radiogroup" aria-label="מקסימום לפי">
+        <label><input type="radio" name="mx" id="mxI" value="ideal" checked>מרווחים אידיאליים</label>
+        <label><input type="radio" name="mx" id="mxA" value="abs">גבול מוחלט</label>
+      </div>
+      <p class="hint">אידיאלי: 310/140, חזית 250. מוחלט: 280/110, חזית 180 (רק אם המשקופים יוצאים מהפיר).</p>
+    </div></details>
+    <details class="opt" id="o-cs"><summary>גודל תא רצוי <span class="val" data-for="cs"></span></summary><div>
+      <div class="row2">
+        <label>רוחב פנים<input id="CW" type="number" inputmode="numeric" placeholder="מקסימלי" step="10"></label>
+        <label>עומק פנים<input id="CD" type="number" inputmode="numeric" placeholder="מקסימלי" step="10"></label>
+      </div>
+      <p class="hint">רוחב = לאורך קיר הדלת. אפשר למלא רק אחד מהם.</p>
+    </div></details>
+  </div>
+</form>
+
+<section class="results" id="out" aria-live="polite"></section>
+</div>
+</section>
+
+<details class="box">
+  <summary>הכללים שבשימוש (נגזרו מהשרטוטים — לעדכון)</summary>
+  <div id="rules" style="font-size:13.5px;display:grid;gap:6px;margin-top:10px"></div>
+</details>
+<details class="box">
+  <summary>מאגר הפרויקטים · <span class="num" id="nproj2"></span></summary>
+  <div class="tbl" style="margin-top:10px"><table id="ptable"></table></div>
+</details>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const PROJECTS = /*DATA*/[];
+const APP_VERSION = 'v14';
+
+/* ---------- parameters (derived from the drawings; edit here) ---------- */
+const P = {
+  extW: 60, extD: 30,                 // car exterior = interior + 60 (width) / + 30 (depth)
+  NF: { // normal frame (miniGRLp / GRL2 / GRL4)
+    small: {cwt: 310, oth: 140, cwtX: 280, othX: 110, rail: 45, railX: 30},   // up to 630 kg
+    mid:   {cwt: 310, oth: 140, cwtX: 280, othX: 110, rail: 40, railX: 30},   // 750-1000 kg (GRL2)
+    big:   {cwt: 480, oth: 250, cwtX: 450, othX: 200, rail: 45, railX: 35},   // GRL4 (Lord Capital 1250kg, David Noy 1600kg)
+    cwtDepthReserve: 560,              // shaft depth >= cwt DBG + 560
+  },
+  RS: { side: 380, oth: 60, othX: 35 }, // rucksack: car+cwt rails on one wall
+  front: 250, frontX: 250, frontOut: 180, back: 50, backX: 40, // front 250 normal; below only when the frames can go out of the shaft (shoulders allow); 180 absolute
+  shGap: 50,                           // ideal clear gap between landing frame and shoulder, each side
+  front180: 240, side90: 240,
+  jamb: 140, jambMin: 140, jambCtrl: 180, // landing door frame (jamb); frame controller needs 180
+  flush: [45, 65],                     // telescopic: standard opening edge to car edge (exterior) on the non-stacking side
+  stackMin: 150,                       // min car front panel on the stacking side (exterior) when the frame is shifted — drawings: p5 155, seen down to 130
+  carDoor: {T2: 220, T3: 150, C: 260}, // car exterior width >= clear + this
+  shaftDoor: {T2: c => 1.5*c + 180, T3: c => 1.34*c + 250, C: c => 2*c - 70},
+  clears: [1300,1200,1100,1000,900,800,750,700,650],
+  stops: 5, floorH: 3000, pit: 1500, head: 4000,
+};
+const LOADS = [320,375,450,525,630,750,800,900,1000,1275,1600,2000,2500];
+// EN 81-20 table 6 — max available car area per rated load
+const T6 = [[100,.37],[180,.58],[225,.70],[300,.90],[375,1.10],[400,1.17],[450,1.30],[525,1.45],[600,1.60],[630,1.66],[675,1.75],[750,1.90],[800,2.00],[825,2.05],[900,2.20],[975,2.35],[1000,2.40],[1050,2.50],[1125,2.65],[1200,2.80],[1250,2.90],[1275,2.95],[1350,3.10],[1425,3.25],[1500,3.40],[1600,3.56],[2000,4.20],[2500,5.00]];
+// EN 81-20 table 8 — min area per number of persons
+const T8 = [0,.28,.49,.60,.79,.98,1.17,1.31,1.45,1.59,1.73,1.87,2.01,2.15,2.29,2.43,2.57,2.71,2.85,2.99,3.13];
+const STD = [ // Idan standards (interior W x D, DBG car / cwt) — orientation matters
+  {w:1000,d:1250,q:450,dc:1150,dw:890,name:'סטנדרט 6 נוסעים'},
+  {w:1100,d:1400,q:630,dc:1250,dw:1060,name:'סטנדרט 8 נוסעים'},
+  {w:1150,d:1550,q:750,dc:1290,dw:1100,name:'סטנדרט 10 נוסעים'},
+  {w:1100,d:2100,q:1000,dc:1220,dw:1100,name:'סטנדרט 13 נוסעים'},
+];
+const CWT_OPTS = q => q<=375?[690,590] : q<=450?[890,810,690,590] : q<=525?[1060,890] : q<=630?[1060,990] : q<=1000?[1100,960] : [1400];
+const CTRL = {big:'ארון פיקוד גדול 450×250×2000', small:'ארון פיקוד קטן 160×150×2000', frame:'פיקוד במשקוף הקומה העליונה'};
+const MODELS = {
+  miniGRLp:{v:'--m-grlp',n:'miniGRLp · נורמל פריים'}, GRL2:{v:'--m-grl2',n:'GRL2 · נורמל פריים'}, GRL4:{v:'--m-grl4',n:'GRL4 · נורמל פריים'},
+  miniGRL:{v:'--m-grl',n:'miniGRL · רוגזק'}, GRL2RS:{v:'--m-grl2r',n:'GRL2 · רוגזק'}};
+const modelKey=o=>o.L==='RS'&&o.model==='GRL2'?'GRL2RS':o.model;
+
+function maxAreaFor(q){ for(let i=0;i<T6.length-1;i++){const[a,x]=T6[i],[b,y]=T6[i+1]; if(q<=b) return x+(y-x)*(q-a)/(b-a);} return 5+(q-2500)/100*.16; }
+function loadFor(area){ return LOADS.find(q => maxAreaFor(q) >= area - 1e-9) ?? null; }
+function personsFor(q, area){ let p=Math.floor(q/75); while(p>1 && T8[Math.min(p,20)]>area+1e-9) p--; return p; }
+function modelFor(layout,q){ if(layout==='RS') return q<=630?'miniGRL':'GRL2'; return q<=630?'miniGRLp':q<=1000?'GRL2':'GRL4'; }
+function access(iw,id,clear){ if(iw>=2000&&id>=1400&&clear>=1100) return 'נגיש סוג 3'; if(iw>=1100&&id>=1400&&clear>=800) return 'נגיש סוג 2'; if(iw>=1000&&id>=1250&&clear>=800) return 'נגיש סוג 1'; return null; }
+const fl10 = v => Math.floor(v/10)*10;
+const dtName=d=>({T2:'טלסקופית 2',T3:'טלסקופית 3',C:'מרכזית'}[d]);
+const sideName=s=>s==='L'?'שמאל':'ימין';
+const dirName=d=>d==='C'?'מרכזית':d==='R'?'נפתחת לימין':'נפתחת לשמאל';
+
+/* ---------- solver ---------- */
+function solve(I){
+  const opts=[], diag=[];
+  const exc = true;                    // ideals (310/140, 240) are warnings; absolute limits are the 'x' values
+  const layouts = I.en==='90' ? ['RS'] : ['NF','RS'];
+  const want = I.cw||I.cd;
+  for(const L of layouts) for(const side of ['L','R']) for(const mode of exc?['n','x']:['n']){
+    if(I.en==='90' && side===I.s90) continue;      // rails on the wall opposite the side entrance
+    if(I.forceSide && side!==I.forceSide) continue; // duplex: counterweights on the outer walls
+    const cands=[];
+    if(want){
+      for(const Q of LOADS){
+        if(L==='RS' && Q>1000) continue;
+        const g=carEnvelope(I,L,mode,Q); if(!g) continue;
+        const iw=I.cw||g.iw, id=I.cd||Math.min(g.id,fl10(maxAreaFor(Q)*1e6/iw));
+        if(iw>g.iw||id>g.id){ diag.push({L,mode,dw:iw-g.iw,dd:id-g.id}); continue; }
+        if(loadFor(iw*id/1e6)!==Q) continue;
+        cands.push({iw,id,kind:'want'});
+      }
+    } else {
+      for(const Q of LOADS){
+        if(L==='RS' && Q>1000) continue;
+        const g=carEnvelope(I,L,mode,Q); if(!g) continue;
+        const id=Math.min(g.id,fl10(maxAreaFor(Q)*1e6/g.iw));
+        if(id<900 || id<0.7*g.iw) continue;
+        cands.push({iw:g.iw,id,kind:'max'});
+      }
+      for(const s of STD){ const e=carEnvelope(I,L,mode,s.q); if(e && s.w<=e.iw && s.d<=e.id) cands.push({iw:s.w,id:s.d,kind:'std',std:s}); }
+    }
+    for(const c of cands){ const o=build(I,L,side,mode,c); if(o) opts.push(o); }
+  }
+  const m=new Map();
+  for(const o of opts){ const k=[o.L,o.q,o.mode,o.isStd?o.stdName:'',o.iw,o.id].join('|'),p=m.get(k); if(!p||o.score>p.score) m.set(k,o); }
+  const m2=new Map();
+  for(const o of m.values()){ const k=[o.L,o.q,o.mode,o.isStd?o.stdName:''].join('|'),p=m2.get(k); if(!p||o.area>p.area+0.005||(Math.abs(o.area-p.area)<=0.005&&o.score>p.score)) m2.set(k,o); }
+  let list=[...m2.values()];
+  const bestNormal=Math.max(0,...list.filter(o=>o.mode==='n'&&o.L==='NF').map(o=>o.area));
+  list=list.filter(o=>o.mode==='n' || o.area>bestNormal+0.005);
+  if(I.ps) list=list.filter(o=>o.persons===I.ps);
+  // preference: normal frame > rucksack, no shoulder cutting, no top-floor cutting, then largest car
+  const idealFirst = I.mx!=='abs' && !want && !I.ps;   // 'maximum' = largest within the ideal clearances unless asked otherwise
+  const tier=o=>(o.L==='NF'?8:0)+(o.cuts.length?0:4)+(idealFirst&&o.mode==='n'?2:0)+(o.ctrl.cut?0:1);
+  list.sort((a,b)=> tier(b)-tier(a) || b.area-a.area || b.score-a.score);
+  return {list:list.slice(0,12), diag};
+}
+
+function clr(L,q){ return L==='RS'?null : q<=630?P.NF.small : q<=1000?P.NF.mid : P.NF.big; }
+
+function canPushOut(I){ // landing frame fits between the shoulders with the 50 mm gap -> it can sit in the wall opening
+  const frameW=(I.clear||800)+2*P.jamb;
+  return I.W-I.SL-I.SR >= frameW+2*P.shGap;
+}
+function frontMin(I,x){ return I.en==='180'? P.front180 : !x? P.front : canPushOut(I)? P.frontOut : P.frontX; }
+function carEnvelope(I,L,mode,q){
+  const x = mode==='x';
+  const front = frontMin(I,x);
+  const back  = I.en==='180'? P.front180 : (x?P.backX:P.back);
+  const id = fl10(I.D - front - back - P.extD);
+  let iw;
+  if(L==='RS'){
+    const oth = I.en==='90' ? P.side90 : (x?P.RS.othX:P.RS.oth);
+    iw = fl10(I.W - P.RS.side - oth - P.extW);
+  } else {
+    const c=clr('NF',q);
+    iw = fl10(I.W - (x?c.cwtX:c.cwt) - (x?c.othX:c.oth) - 2*(x?c.railX:c.rail) - P.extW);
+  }
+  if(iw<600||id<800) return null;
+  return {iw,id};
+}
+
+// place a door of clear width cl on an axis: car spans [a,b], wall opening spans [oa,ob].
+// dir: 'A' = flush to a (panels stack toward b), 'B' = flush to b, 'C' = centred, 'auto' = best of A/B.
+function placeDoor(cl,a,b,oa,ob,dt,dir,jmin){
+  const tries = dt==='C' ? ['C'] : dir==='auto' ? ['A','B'] : [dir];
+  let best=null;
+  for(const d of tries){
+    let lo,hi;
+    if(d==='C'){ lo=hi=Math.round(a+(b-a-cl)/2); }
+    else if(d==='A'){ lo=a+P.flush[0]; hi=Math.max(lo, b-cl-P.stackMin); }   // frame may shift toward the stacking side
+    else { hi=b-P.flush[0]-cl; lo=Math.min(hi, a+P.stackMin); }
+    const ideal=oa+(ob-oa-cl)/2;
+    const o1=Math.round(Math.min(hi,Math.max(lo,ideal)));
+    const ja=o1-oa, jb=ob-o1-cl, cuts=[];
+    if(ja<jmin) cuts.push({end:'A',mm:jmin-ja});
+    if(jb<jmin) cuts.push({end:'B',mm:jmin-jb});
+    const r={o1,ja:Math.max(ja,cuts.some(k=>k.end==='A')?jmin:ja),jb:Math.max(jb,cuts.some(k=>k.end==='B')?jmin:jb),cuts,dir:d,lo,hi,cl};
+    const sc=-cuts.reduce((s,k)=>s+k.mm,0)*10+Math.min(ja,jb);
+    if(!best||sc>best.sc) best={...r,sc};
+  }
+  return best;
+}
+
+function build(I,L,side,mode,c){
+  const x = mode==='x', notes=[];
+  let iw=c.iw, id=c.id;
+  const area = iw*id/1e6;
+  let q = loadFor(area); if(!q) return null;
+  if(c.kind==='std') q=c.std.q;
+  if(L==='RS' && q>1000) return null;
+  const extW=iw+P.extW, extD=id+P.extD;
+  let dbgCar, dbgCwt, gapCwt, gapOth, carL, railOff=0;
+  const front = frontMin(I,x);
+  const wantC = I.SL + (I.W-I.SL-I.SR)/2;
+  if(L==='NF'){
+    const k=clr('NF',q);
+    const rail = Math.min(k.rail, Math.max(x?k.railX:k.rail, Math.floor((I.W-extW-(x?k.cwtX:k.cwt)-(x?k.othX:k.oth))/2)));
+    dbgCar = c.kind==='std' ? Math.max(c.std.dc, extW+2*rail) : extW + 2*rail;
+    if(c.kind==='std' && dbgCar + (x?k.cwtX:k.cwt) + (x?k.othX:k.oth) > I.W) dbgCar = extW+2*rail;
+    if(rail<k.rail) notes.push({t:`מרחק קבינה-מסילה ${rail} (סטנדרט ${k.rail})`,c:'warn'});
+    const rest = I.W - dbgCar;
+    const minC = x?k.cwtX:k.cwt, minO = x?k.othX:k.oth;
+    if(rest < minC+minO) return null;
+    const ideal = side==='L' ? wantC - dbgCar/2 : I.W - wantC - dbgCar/2;
+    gapCwt = Math.round(Math.min(rest-minO, Math.max(minC, ideal))); gapOth = rest-gapCwt;
+    var gapRange=[minC, rest-minO], gapToCarL = g => side==='L' ? g + (dbgCar-extW)/2 : I.W - g - dbgCar + (dbgCar-extW)/2;
+    const cwtList = c.kind==='std'?[c.std.dw,...CWT_OPTS(q).filter(v=>v!==c.std.dw)]:CWT_OPTS(q);
+    dbgCwt = cwtList.find(v => v + P.NF.cwtDepthReserve <= I.D);
+    if(q>1000){ dbgCwt = 1400; notes.push({t:'GRL4: מבוסס על 2 פרויקטים בלבד במאגר — לאמת מול Felesa.',c:'warn'}); }
+    else if(!dbgCwt) return null;
+    else if(dbgCwt!==cwtList[0]) notes.push({t:`DBG משקולת מקוצר ${dbgCwt} (סטנדרט ${cwtList[0]}) בגלל עומק הפיר`,c:'warn'});
+    railOff=(dbgCar-extW)/2;
+    carL = side==='L' ? gapCwt + railOff : gapOth + railOff;
+  } else {
+    const minO = I.en==='90'?P.side90:(x?P.RS.othX:P.RS.oth);
+    const rest=I.W-extW;
+    if(rest-P.RS.side<minO) return null;
+    const ideal = side==='L' ? wantC - extW/2 : I.W - wantC - extW/2;
+    gapCwt=Math.round(Math.min(rest-minO, Math.max(P.RS.side, ideal))); gapOth=rest-gapCwt;
+    var gapRange=[P.RS.side, rest-minO], gapToCarL = g => side==='L' ? g : I.W - g - extW;
+    dbgCar = Math.max(520, extD-430); dbgCwt=dbgCar+46;
+    carL = side==='L' ? gapCwt : gapOth;
+    notes.push({t:'רוגזק — אפשרות משנית.',c:''});
+    if(q>630) notes.push({t:'רוגזק מעל 630 ק"ג (GRL2) — פרויקט אחד בלבד במאגר, לאמת מול Felesa',c:'warn'});
+  }
+  if(front<P.front) notes.push({t:`מרווח חזית ${front} — מתחת ל-${P.front}: המשקופים יוצאים מחוץ לפיר (הכתפיים מאפשרות)`,c:'warn'});
+  const cy = I.D-front-extD;
+
+  // ---- front landing door: try every car position (10 mm steps) and keep the best door
+  const dt=I.dt;
+  const dirPref = dt==='C'?'C': I.dir==='R'?'A' : I.dir==='L'?'B' : 'auto'; // opens right -> stacks right -> flush left (A)
+  const carMax = extW - P.carDoor[dt];
+  const oL=I.SL, oR=I.W-I.SR;
+  const fits = cl => cl<=carMax && P.shaftDoor[dt](cl) <= I.W;
+  const ok=P.clears.filter(fits);
+  if(I.clear ? !fits(I.clear) : !ok.length) return null;
+  const canCtrl = v => { if(I.ct!=='frame' || dt==='C') return true; const need=P.jambCtrl-Math.max(v.ja,v.jb); if(need<=0) return true;
+    const sh = v.ja>=v.jb? need : -need, n1=v.o1+sh, other = v.ja>=v.jb? v.jb-need : v.ja-need;
+    return n1>=v.lo && n1<=v.hi && other>=P.jambMin; };
+  const gaps=[]; for(let g=gapRange[0]; g<=gapRange[1]; g+=10) gaps.push(g); if(!gaps.includes(gapCwt)) gaps.push(gapCwt);
+  let best=null;
+  for(const g of gaps){
+    const cL=gapToCarL(g), pl=cl=>placeDoor(cl,cL,cL+extW,oL,oR,dt,dirPref,P.jambMin);
+    let d;
+    if(I.clear) d=pl(I.clear);
+    else { const all=ok.map(pl); d = all.find(v=>!v.cuts.length && canCtrl(v)) || all.find(v=>!v.cuts.length) || all[all.length-1]; }
+    const cutMM=d.cuts.reduce((t,k)=>t+k.mm,0);
+    const sg = Math.min(Math.min(d.ja,d.jb)-P.jamb, P.shGap);
+    const sc = -cutMM*100 + d.cl*10 + (canCtrl(d)?500:0) - Math.abs(d.ja-d.jb)*5 - Math.abs(g-gapCwt)/10;   // frame centred in the opening: equal gaps beat 50 on one side only
+    if(!best||sc>best.sc) best={sc,g,d,cL};
+  }
+  gapCwt=best.g; gapOth=(L==='NF'?I.W-dbgCar:I.W-extW)-gapCwt; carL=best.cL;
+  const carR = carL+extW, d=best.d;
+  if(!I.clear){
+    const bigger = ok.filter(cl=>cl>d.cl).pop();
+    if(bigger && !d.cuts.length){ const b2=placeDoor(bigger,carL,carR,oL,oR,dt,dirPref,P.jambMin);
+      if(b2.cuts.length) notes.push({t:`עם ניסור כתפיים (${b2.cuts.map(k=>sideName(k.end==='A'?'L':'R')+' '+k.mm).join(', ')} מ"מ) אפשר פתח ${bigger}`,c:''});
+      else notes.push({t:`פתח ${bigger} אפשרי עם ארון פיקוד במקום פיקוד במשקוף`,c:''}); }
+  }
+  if(L==='NF'){ const k=clr('NF',q);
+    if(gapCwt<k.cwt) notes.push({t:`מרווח משקולת ${gapCwt} — מתחת לאידיאל ${k.cwt}`,c:'warn'});
+    if(gapOth<k.oth) notes.push({t:`מרווח פס בודד ${gapOth} — מתחת לאידיאל ${k.oth}`,c:'warn'}); }
+  else if(gapOth<P.RS.oth) notes.push({t:`מרווח צד פנוי ${gapOth} — מתחת ל-${P.RS.oth}`,c:'warn'});
+  let o1=d.o1, jl=d.ja, jr=d.jb;
+  const clear=d.cl, cuts=d.cuts.map(k=>({side:k.end==='A'?'L':'R',mm:k.mm,from:k.end==='A'?I.SL:I.SR}));
+  for(const k of cuts) notes.push({t:`ניסור כתף ${sideName(k.side)}: ${k.mm} מ"מ (מ-${k.from} ל-${k.from-k.mm}) כדי לקבל משקוף ${P.jambMin}`,c:'cut'});
+  const doorDir = d.dir==='C'?'C': d.dir==='A'?'R':'L';
+
+  // controller in frame: shift the door within its allowed range so one jamb reaches 180
+  const ctrl={type:I.ct, side:null, cut:0};
+  if(I.ct==='frame'){
+    const sideL = jl>=jr, need=P.jambCtrl-Math.max(jl,jr);
+    if(need>0 && !cuts.length && dt!=='C'){
+      const sh = sideL? need : -need, n1=o1+sh, other = sideL? jr-need : jl-need;
+      if(n1>=d.lo && n1<=d.hi && other>=P.jambMin){ o1=n1; jl+=sh; jr-=sh; }
+    }
+    ctrl.side = jl>=jr ? 'L':'R';
+    const j = Math.max(jl,jr);
+    if(j<P.jambCtrl){ ctrl.cut=P.jambCtrl-j; notes.push({t:`פיקוד במשקוף: בקומה העליונה בלבד לנסר כתף ${sideName(ctrl.side)} ${ctrl.cut} מ"מ (משקוף ${P.jambCtrl})`,c:'cut'}); }
+    else notes.push({t:`פיקוד במשקוף ה${sideName(ctrl.side)} בקומה העליונה (משקוף ${j})`,c:''});
+  } else if(I.ct==='big') notes.push({t:'ארון פיקוד 450×250×2000 בקומה העליונה, עד 3 מ\' מהפיר',c:''});
+  else notes.push({t:'ארון פיקוד קטן 160×150×2000 בקומה העליונה, צמוד לפיר',c:''});
+  const legL = Math.min(P.jamb,jl), legR = Math.min(P.jamb,jr);   // typical floor; a frame controller widens one leg to 180 on the top floor only
+  const shGapL = jl-legL, shGapR = jr-legR;
+  if(Math.min(legL,legR)<P.jamb && !(ctrl.type==='frame')) notes.push({t:`משקוף ${Math.min(legL,legR)} במקום ${P.jamb} (בפועל המשקוף 120 — אפשרי)`,c:'warn'});
+  if(I.ct==='big' && dt!=='C'){ const sh = doorDir==='R'? I.SR : I.SL;
+    if(sh<450) notes.push({t:`ארון גדול: בקומה העליונה נדרשת כתף 450 בצד הפתיחה (${sideName(doorDir)}) — יש ${sh}`,c:'warn'}); }
+  if(Math.min(shGapL,shGapR)<P.shGap) notes.push({t:`מרווח משקוף-כתף ${shGapL} / ${shGapR} מ"מ — פחות מ-${P.shGap}`,c:'warn'});
+  if(shGapL>300||shGapR>300) notes.push({t:`מרווח גדול בין המשקוף לכתף (${shGapL}/${shGapR}) — כיסוי/מילוי`,c:''});
+  const panL = o1-carL, panR = (carL+extW)-(o1+clear);   // car front panels, measured like Felesa drawings (from car exterior)
+  if(dt!=='C' && Math.min(panL,panR) > P.flush[1]) notes.push({t:`המשקוף הוזז ביחס לקבינה: מזוזות ${panL} / ${panR} (לא סטנדרטי)`,c:''});
+
+  // ---- second entrance
+  let rear=null, sideDoor=null;
+  if(I.en==='180'){
+    // rear shoulders are entered as seen from the rear lobby: their left is the front's right
+    const rL = I.RR ?? I.SL, rR = I.RL ?? I.SR;   // in front coordinates
+    const rd = placeDoor(clear,carL,carR,rL,I.W-rR,dt,dirPref,P.jambMin);
+    rear = {o1:rd.o1, jl:rd.ja, jr:rd.jb, shL:rL, shR:rR, cuts:rd.cuts.map(k=>({side:k.end==='A'?'L':'R',mm:k.mm}))};
+    for(const k of rear.cuts){ const rs = k.side==='L'?'ימין':'שמאל'; const from = k.side==='L'?rL:rR;
+      notes.push({t:`כניסה אחורית: ניסור כתף ${rs} (במבט מהלובי האחורי) ${k.mm} מ"מ (מ-${from} ל-${from-k.mm})`,c:'cut'}); }
+    if(I.RL==null && I.RR==null) notes.push({t:'כתפיים אחוריות לא הוזנו — חושב כמו בחזית',c:''});
+  }
+  if(I.en==='90'){
+    // along the depth axis (y from back wall 0 to front D); side door opening spans [SB, D-SF]
+    const sb=I.SB??0, sf=I.SF??0;
+    const sd = placeDoor(clear,cy,cy+extD,sb,I.D-sf,dt,'auto',P.jambMin);
+    const sideCarMax = extD - P.carDoor[dt];
+    if(clear>sideCarMax) notes.push({t:`כניסה צדדית: עומק הקבינה מאפשר פתח עד ${fl10(sideCarMax)}`,c:'warn'});
+    sideDoor={o1:sd.o1, jb:sd.ja, jf:sd.jb, sb, sf, cuts:sd.cuts};
+    for(const k of sd.cuts) notes.push({t:`כניסה צדדית: ניסור כתף ${k.end==='A'?'אחורית':'קדמית'} ${k.mm} מ"מ`,c:'cut'});
+    notes.push({t:`כניסה שנייה בקיר ה${sideName(I.s90)}, המסילות והמשקולת בקיר ה${sideName(side)}`,c:''});
+  }
+
+  const persons=personsFor(q,area);
+  const stdObj = c.kind==='std'?c.std:STD.find(s=>s.w===iw&&s.d===id);
+  const isStd = !!stdObj;
+  if(isStd && L==='NF' && dbgCar!==stdObj.dc) notes.push({t:`DBG קבינה ${dbgCar} (בסטנדרט ${stdObj.dc})`,c:'warn'});
+  const allCuts=[...cuts,...(rear?.cuts||[]),...(sideDoor?.cuts||[])];
+  const nWarn=notes.filter(n=>n.c==='warn').length;
+  const score = - allCuts.reduce((s,k)=>s+k.mm,0)*3 + clear*2 - nWarn*50 + (isStd?30:0);   // no cutting > wider door > fewer warnings
+  return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
+}
+
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+/* ---------- result model: one or two lifts in one shaft ---------- */
+// R = {W, D, I, lifts:[{o, x0}], openings:[{a,b,cutA,cutB}], beam:{x,w}|null, duplex:bool}
+function singleR(o){
+  const I=o.I, fc=k=>o.frontCuts.find(c=>c.side===k)?.mm||0;
+  return {W:I.W, D:I.D, I, lifts:[{o,x0:0}], openings:[{a:I.SL,b:I.W-I.SR,cutA:fc('L'),cutB:fc('R')}], beam:null, duplex:false, main:o};
+}
+function duplexSplit(I,bx){
+  // identical lifts -> beam exactly in the middle of the common shaft; unequal lifts pass the beam position
+  const bw=I.beam||100;
+  if(bx==null) bx=Math.round((I.W-bw)/2);
+  const WL=bx, x0R=bx+bw, WR=I.W-x0R;
+  const sRL=WL-(I.SL+I.openL), sLR=(I.SL+I.openL+I.pillar)-x0R;
+  const IL={...I, W:WL, SR:Math.max(0,sRL), forceSide:'L', en:'1'};
+  const IR={...I, W:WR, SL:Math.max(0,sLR), forceSide:'R', en:'1'};
+  return {IL,IR,bx,bw,x0R,sRL,sLR};
+}
+// mirror a solved lift about the shaft centre line (identical lifts in a symmetric duplex)
+function mirrorLift(o,I2){
+  const W=I2.W, sw=x=>x==='L'?'R':x==='R'?'L':x, fl=k=>({...k,side:sw(k.side)});
+  return {...o, I:I2, side:sw(o.side), carL:W-o.carL-o.extW, o1:W-o.o1-o.clear, doorDir:sw(o.doorDir),
+    jl:o.jr, jr:o.jl, legL:o.legR, legR:o.legL, shGapL:o.shGapR, shGapR:o.shGapL, panL:o.panR, panR:o.panL,
+    cuts:o.cuts.map(fl), frontCuts:o.frontCuts.map(fl), ctrl:{...o.ctrl, side:sw(o.ctrl.side)}, notes:o.notes};
+}
+function sizeTitle(R){ if(!R.duplex) return `${R.main.iw}×${R.main.id}`; const [a,b]=R.lifts.map(l=>l.o); return a.iw===b.iw&&a.id===b.id? `2 × ${a.iw}×${a.id}` : `${a.iw}×${a.id} + ${b.iw}×${b.id}`; }
+const dTier=R=>R.lifts.reduce((t,{o})=>t+(o.L==='NF'?8:0)+(o.cuts.length?0:4)+(o.mode==='n'?2:0),0);
+function duplexPair(I,s,a,b){
+  const fcA=k=>a.frontCuts.find(c=>c.side===k)?.mm||0, fcB=k=>b.frontCuts.find(c=>c.side===k)?.mm||0;
+  const notes=[];
+  if(s.sRL<0) notes.push({t:`הפתח השמאלי עובר את הקורה ב-${-s.sRL} מ"מ`,c:'warn'});
+  if(s.sLR<0) notes.push({t:`הפתח הימני עובר את הקורה ב-${-s.sLR} מ"מ`,c:'warn'});
+  const carGap=Math.round(s.x0R+b.carL-(a.carL+a.extW)); // car exterior to car exterior
+  if(carGap<600) notes.push({t:`המרחק בין הקבינות ${carGap} מ"מ — פחות מ-600`,c:'warn'});
+  return {W:I.W,D:I.D,I,duplex:true,main:a,notes,carGap,
+    lifts:[{o:a,x0:0},{o:b,x0:s.x0R}],
+    openings:[{a:I.SL,b:I.SL+I.openL,cutA:fcA('L'),cutB:fcA('R')},{a:I.SL+I.openL+I.pillar,b:I.W-I.SR,cutA:fcB('L'),cutB:fcB('R')}],
+    beam:{x:s.bx,w:s.bw}};
+}
+// per-lift request: {ps, cw, cd}; I.sides = {L:req, R:req|'same'} (free screen). Without sides both lifts use I.ps/cw/cd.
+function solveDuplex(I){
+  const base={ps:I.ps??null,cw:I.cw??null,cd:I.cd??null};
+  const rL=I.sides?.L||base, rR=(!I.sides?.R||I.sides.R==='same')?rL:I.sides.R;
+  const same=rL.ps===rR.ps&&rL.cw===rR.cw&&rL.cd===rR.cd;
+  const bw=I.beam||100, mid=Math.round((I.W-bw)/2), p0=I.SL+I.openL, p1=p0+I.pillar-bw;
+  if(same && mid>=p0 && mid<=p1) return solveDuplexSame({...I,...rL});   // identical lifts, pillar in the middle -> beam in the middle
+  return solveDuplexUnequal(I,rL,rR,same);
+}
+// unequal lifts: slide the beam behind the pillar (and beyond, penalised) so each lift gets the shaft it needs
+function solveDuplexUnequal(I,rL,rR,same){
+  const bw=I.beam||100, p0=I.SL+I.openL, p1=I.SL+I.openL+I.pillar-bw, mid=(p0+p1)/2;
+  const lo=Math.max(700,Math.min(p0,p1)-600), hi=Math.min(I.W-bw-700,Math.max(p0,p1)+600);
+  const best=new Map();
+  for(let bx=Math.ceil(lo/10)*10; bx<=hi; bx+=10){
+    const s=duplexSplit(I,bx);
+    const a=solve({...s.IL,...rL}).list[0]; if(!a) continue;
+    const b=solve({...s.IR,...rR}).list[0]; if(!b) continue;
+    const R=duplexPair(I,s,a,b), over=Math.max(0,-s.sRL)+Math.max(0,-s.sLR);
+    R.sc = -over*1e5 + dTier(R)*1e3 + (a.area+b.area)*100 - Math.abs(bx-mid)/100 - (R.carGap<600?(600-R.carGap)*10:0)
+      - (same&&(a.iw!==b.iw||a.id!==b.id)?5e4:0);
+    const k=[a.L,a.iw,a.id,b.L,b.iw,b.id].join('|'), p=best.get(k);
+    if(!p||R.sc>p.sc) best.set(k,R);
+  }
+  const notesR=R=>{ const oc=R.beam.x-(I.W-bw)/2; if(Math.abs(oc)>=10) R.notes.push({t:`הקורה הוזזה ${Math.abs(Math.round(oc))} מ"מ ${oc>0?'ימינה':'שמאלה'} מאמצע הפיר — ${same?'כדי לעמוד מאחורי העמוד':'מעליות בגדלים שונים'}`,c:''}); return R; };
+  return [...best.values()].sort((p,q)=>q.sc-p.sc).slice(0,10).map(notesR);
+}
+function solveDuplexSame(I){
+  const s=duplexSplit(I);
+  const L=solve(s.IL).list, Rr=solve(s.IR).list;
+  const sizes=[]; for(const o of [...L,...Rr]) if(!sizes.some(z=>z.iw===o.iw&&z.id===o.id)) sizes.push({iw:o.iw,id:o.id});
+  const pairs=[];
+  for(const z of sizes){
+    const a=solve({...s.IL,cw:z.iw,cd:z.id,ps:null}).list[0];
+    const sym = a && Math.abs(s.IL.W-s.IR.W)<=1 && Math.abs(s.IL.SL-s.IR.SR)<=1 && Math.abs(s.IL.SR-s.IR.SL)<=1;
+    const b = sym ? mirrorLift(a,s.IR) : solve({...s.IR,cw:z.iw,cd:z.id,ps:null}).list[0];
+    if(!a||!b) continue;
+    if(I.ps && a.persons!==I.ps) continue;
+    if(I.cw && a.iw!==I.cw || I.cd && a.id!==I.cd) continue;
+    pairs.push(duplexPair(I,s,a,b));
+  }
+  pairs.sort((p,q)=>dTier(q)-dTier(p) || q.main.area-p.main.area);
+  return pairs.slice(0,10);
+}
+
+/* ---------- plan drawing (SVG, mm units) — bbox-fitted, collision-avoiding labels, he/en ---------- */
+const PL_TXT={
+  he:{cwt:'מרווח משקולת',single:'פס בודד',rsSide:'מסילות+משקולת',rsFree:'צד פנוי',dbg:'DBG קבינה',shaftW:'רוחב פיר',shaftD:'עומק פיר',shL:'כתף',shR:'כתף',gap:'מרווח',frame:'משקוף',clear:'פתח אור',panel:'מזוזה',back:'גב',front:'חזית',carInt:'קבינה פנים',pillar:'עמוד',beam:'קורה',carPos:'מיקום הקבינה בפיר',wallToCar:'קיר-קבינה',car:'קבינה',view:'מבט על · הלובי למטה',ctrlF:'פיקוד במשקוף (קומה עליונה)',ctrlB:'ארון פיקוד',ctrlS:'ארון קטן',dbgCwt:'DBG משקולת',kg:'ק"ג',pers:'נוסעים',now:'היום'},
+  en:{cwt:'CWT gap',single:'Rail side',rsSide:'Rails+CWT',rsFree:'Free side',dbg:'Car DBG',shaftW:'Shaft width',shaftD:'Shaft depth',shL:'Shoulder',shR:'Shoulder',gap:'Gap',frame:'Frame',clear:'Clear opening',panel:'Panel',back:'Back',front:'Front',carInt:'Car (int.)',pillar:'Pillar',beam:'Beam',carPos:'Car position in shaft',wallToCar:'Wall-car',car:'Car',view:'TOP VIEW — landing side at bottom',ctrlF:'Frame controller (top floor)',ctrlB:'Controller cabinet',ctrlS:'Small controller',dbgCwt:'CWT DBG',kg:'kg',pers:'pers.',now:'now'}};
+const PL_COL={ink:'#0d1420',ink2:'#2b3646',muted:'#5a6577',line:'#d3dae4',wall:'#c9d1db',hatch:'#9aa6b4',car:'#eef3ff',cwt:'#4a5566',accent:'#3554d1',ok:'#13865c',okSoft:'#e3f6ee',warn:'#b26b00',warnSoft:'#fff5dc',cut:'#d9480f',cutSoft:'#fff0e6',bg:'#ffffff'};
+function drawPlan(R, opt={}){
+  const lang=opt.lang||'he', T=PL_TXT[lang], pr=!!opt.print;
+  const C=k=>pr?PL_COL[k]:({ink:'var(--ink)',ink2:'var(--ink-2)',muted:'var(--muted)',line:'var(--line-2)',wall:'var(--wall)',hatch:'var(--hatch)',car:'var(--car)',cwt:'var(--cwt)',accent:'var(--accent)',ok:'var(--ok)',okSoft:'var(--ok-soft)',warn:'var(--warn)',warnSoft:'var(--warn-soft)',cut:'var(--cut)',cutSoft:'var(--cut-soft)',bg:'var(--surface)'}[k]);
+  const MC=o=>pr?({miniGRLp:'#0e9384',GRL2:'#3554d1',GRL4:'#1d2f7a',miniGRL:'#7a3fe0',GRL2RS:'#c0279c'}[modelKey(o)]):`var(${MODELS[modelKey(o)].v})`;
+  const FN=pr?'Arial, Helvetica, sans-serif':(lang==='en'?'var(--f-num)':'var(--f-body)'), FNUM=pr?'Arial, Helvetica, sans-serif':'var(--f-num)';
+  const W=R.W, D=R.D, t=200;
+  const fs=Math.max(78, Math.min(130, Math.max(W, D*1.15)*0.046)), sfs=fs*0.74, row=fs*1.5;
+  const s=[], occupied={}, cwDims=[]; let bb={x0:-t,y0:-t,x1:W+t,y1:D+t};
+  const grow=(x0,y0,x1,y1)=>{bb.x0=Math.min(bb.x0,x0);bb.y0=Math.min(bb.y0,y0);bb.x1=Math.max(bb.x1,x1);bb.y1=Math.max(bb.y1,y1);};
+  const tw=(str,f)=>String(str).length*f*0.58;
+  const txt=(x,y,str,o2={})=>{ const f=o2.fs||fs, a=o2.a||'middle', w=tw(str,f);
+    if(o2.rot) grow(x-f,y-w/2,x+f*0.3,y+w/2); else grow(a==='middle'?x-w/2:a==='end'?x-w:x, y-f, a==='middle'?x+w/2:a==='end'?x:x+w, y+f*0.3);
+    s.push(`<text x="${x}" y="${y}" font-size="${f}" text-anchor="${a}" fill="${o2.c||C('ink')}" ${o2.rot?`transform="rotate(${o2.rot} ${x} ${y})"`:''} font-family="${o2.num?FNUM:FN}" ${o2.w?`font-weight="${o2.w}"`:''}>${str}</text>`); };
+  const rect=(x,y,w,h,f,extra='')=>{ if(w<=0||h<=0) return; s.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" ${extra}/>`); };
+  const line=(x1,y1,x2,y2,c,w,extra='')=>s.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}" ${extra}/>`);
+  s.push(`<defs><pattern id="ht${pr?'p':''}" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="60" height="60" fill="${C('wall')}"/><line x1="0" y1="0" x2="0" y2="60" stroke="${C('hatch')}" stroke-width="10"/></pattern>
+    <pattern id="ct${pr?'p':''}" width="50" height="50" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="50" height="50" fill="${C('cutSoft')}"/><line x1="0" y1="0" x2="0" y2="50" stroke="${C('cut')}" stroke-width="12"/></pattern></defs>`);
+  const HT=`url(#ht${pr?'p':''})`, CT=`url(#ct${pr?'p':''})`;
+  // ---- walls
+  const I=R.I, single=R.lifts.length===1, o0=R.lifts[0].o;
+  const rear=single?o0.rear:null, sideD=single?o0.sideDoor:null;
+  if(rear){ const rc=k=>rear.cuts.find(c=>c.side===k)?.mm||0;
+    rect(-t,-t,t+rear.shL-rc('L'),t,HT); rect(W-rear.shR+rc('R'),-t,rear.shR-rc('R')+t,t,HT);
+    if(rc('L')) rect(rear.shL-rc('L'),-t,rc('L'),t,CT); if(rc('R')) rect(W-rear.shR,-t,rc('R'),t,CT);
+    rect(rear.o1-rear.jl,-t+20,Math.min(P.jamb,rear.jl),t-40,C('ink2')); rect(rear.o1+o0.clear,-t+20,Math.min(P.jamb,rear.jr),t-40,C('ink2')); rect(rear.o1,0,o0.clear,20,C('accent'));
+  } else rect(-t,-t,W+2*t,t,HT);
+  const sdx = sideD ? (I.s90==='L'?-t:W) : null;
+  if(sideD){ const ca=sideD.cuts.find(k=>k.end==='A')?.mm||0, cb=sideD.cuts.find(k=>k.end==='B')?.mm||0;
+    rect(sdx,0,t,sideD.sb-ca,HT); rect(sdx,D-sideD.sf+cb,t,sideD.sf-cb,HT);
+    rect(I.s90==='L'?0:W-20,sideD.o1,20,o0.clear,C('accent')); }
+  if(sdx!==-t) rect(-t,0,t,D,HT);
+  if(sdx!==W) rect(W,0,t,D,HT);
+  // front wall: solid between openings, cut zones hatched orange
+  let px=-t;
+  R.openings.forEach((op,i)=>{ rect(px,D,op.a-op.cutA-px,t,HT); if(op.cutA) rect(op.a-op.cutA,D,op.cutA,t,CT); if(op.cutB) rect(op.b,D,op.cutB,t,CT); px=op.b+op.cutB; });
+  rect(px,D,W+t-px,t,HT);
+  s.push(`<rect x="0" y="0" width="${W}" height="${D}" fill="none" stroke="${C('ink')}" stroke-width="6"/>`);
+  if(R.beam){ rect(R.beam.x,0,R.beam.w,D,'none',`stroke="${C('muted')}" stroke-width="6" stroke-dasharray="30 20"`); txt(R.beam.x+R.beam.w/2,D*0.18,T.beam,{fs:sfs,c:C('muted'),rot:-90}); }
+  // ---- lifts
+  for(const {o,x0} of R.lifts){
+    const mc=MC(o), cx=x0+o.carL, cy=o.cy, o1=x0+o.o1, op=R.openings[R.lifts.findIndex(l=>l.o===o)];
+    // landing frame legs + clearance to shoulder
+    rect(o1-o.legL,D+20,o.legL,t-40,C('ink2')); rect(o1+o.clear,D+20,o.legR,t-40,C('ink2'));
+    for(const [gx,gw] of [[o1-o.legL-o.shGapL,o.shGapL],[o1+o.clear+o.legR,o.shGapR]]) if(gw>0) rect(gx,D+20,gw,t-40,gw<P.shGap?C('warnSoft'):C('okSoft'),`stroke="${gw<P.shGap?C('warn'):C('ok')}" stroke-width="5" stroke-dasharray="14 9"`);
+    // landing door panels + sill
+    const pw = o.dt==='T3'? o.clear/3+40 : o.clear/2+40;
+    if(o.dt==='C'){ rect(o1-pw/2,D-70,pw,24,C('muted')); rect(o1+o.clear-pw/2,D-70,pw,24,C('muted')); }
+    else { const n=o.dt==='T3'?3:2, toR=o.doorDir==='R'; for(let i=0;i<n;i++){ const p2 = toR? o1+o.clear-pw+20-i*30 : o1-20+i*30; rect(p2,D-70-i*34,pw,24,C('muted')); } }
+    rect(o1,D-20,o.clear,20,C('accent'));
+    // car
+    s.push(`<rect x="${cx}" y="${cy}" width="${o.extW}" height="${o.extD}" fill="${C('car')}" stroke="${mc}" stroke-width="14"/>`);
+    s.push(`<rect x="${cx+30}" y="${cy}" width="${o.iw}" height="${o.id}" fill="none" stroke="${mc}" stroke-width="4" stroke-dasharray="20 14"/>`);
+    rect(o1,cy+o.extD-10,o.clear,20,C('accent'));
+    const cf=Math.min(fs*1.5, o.extW/6.2);
+    txt(cx+o.extW/2,cy+o.extD/2-cf*0.15,`${o.iw}×${o.id}`,{fs:cf,w:700,num:true});
+    txt(cx+o.extW/2,cy+o.extD/2+cf*0.95,`${o.q} ${T.kg} · ${o.persons} ${T.pers}`,{fs:cf*0.62,c:C('muted')});
+    if(o.dt!=='C'){ const ax=o1+o.clear/2, ay=cy+o.extD-cf*0.9, dx=(o.doorDir==='R'?1:-1)*Math.min(160,o.clear/4);
+      line(ax-dx,ay,ax+dx,ay,C('accent'),10); s.push(`<path d="M${ax+dx} ${ay} l${-Math.sign(dx)*50} -35 v70z" fill="${C('accent')}"/>`); }
+    // rails + counterweight
+    const tRail=(xf,yc,dir)=>{ rect(dir>0?xf-70:xf,yc-9,70,18,C('ink')); rect(dir>0?xf-80:xf+70,yc-45,10,90,C('ink')); };
+    const tRailY=(x,yf,dir)=>{ rect(x-9,dir>0?yf-70:yf,18,70,C('ink')); rect(x-40,dir>0?yf-80:yf+70,80,10,C('ink')); };
+    const midY=cy+o.extD/2, HW=o.I.W;
+    if(o.L==='NF'){
+      tRail(cx-o.railOff,midY,1); tRail(cx+o.extW+o.railOff,midY,-1);
+      const cwX = x0+(o.side==='L'?70:HW-70), yb=Math.min(D-430,D-60), yt=Math.max(60,yb-o.dbgCwt);
+      tRailY(cwX,yt,-1); tRailY(cwX,yb,1); rect(cwX-60,yt+80,120,yb-yt-160,C('cwt'));
+      cwDims.push({x:o.side==='L'?-t:W+t, side:o.side, yt, yb, v:o.dbgCwt});
+    } else {
+      const y1=midY-o.dbgCar/2, y2=midY+o.dbgCar/2, rx=x0+(o.side==='L'?250:HW-250), cwX=x0+(o.side==='L'?90:HW-90);
+      tRailY(rx,y1,-1); tRailY(rx,y2,1); rect(cwX-55,y1+80,110,o.dbgCar-160,C('cwt'));
+    }
+    // controller
+    if(o.ctrl.type==='frame'){ const jx = o.ctrl.side==='L'? o1-o.legL : o1+o.clear, jw = o.ctrl.side==='L'? o.legL : o.legR;
+      s.push(`<rect x="${jx}" y="${D+20}" width="${jw}" height="${t-40}" fill="none" stroke="${C('warn')}" stroke-width="10"/>`); }
+    // panels inside the car (front wall of the car)
+    dimChain([cx,o1,o1+o.clear,cx+o.extW], cy+o.extD-cf*2.1, [{v:o.panL,n:T.panel},null,{v:o.panR,n:T.panel}], -1, true);
+  }
+  // controller cabinet marker (single only — drawn at the larger shoulder side)
+  if(single && o0.ctrl.type!=='frame'){ const big=o0.ctrl.type==='big', cw=big?450:160, ch=big?250:150, left=I.SL>=I.SR;
+    const bx = left ? -t-cw-160 : W+t+160, by = D+t+40; rect(bx,by,cw,ch,'none',`stroke="${C('warn')}" stroke-width="10"`);
+    txt(bx+cw/2,by+ch+sfs*1.3,big?T.ctrlB:T.ctrlS,{fs:sfs,c:C('warn')}); }
+  // ---- dimension chains
+  function dimChain(pts,y,labels,dir,inner){ // dir -1: labels above the line, +1: below
+    line(pts[0],y,pts[pts.length-1],y,C('muted'),5);
+    pts.forEach(p=>line(p-22,y+22,p+22,y-22,C('ink'),7));
+    const key=Math.round(y); let maxK=0;
+    for(let i=0;i<pts.length-1;i++){ const L=labels[i]; if(!L) continue; const a=pts[i],b=pts[i+1],mid=(a+b)/2;
+      if(b-a<=0.5) continue;
+      const f=inner?sfs:fs, vw=tw(L.v,f)+f*0.5;
+      if(b-a>=vw){ // fits on the line
+        txt(mid, dir<0? y-f*0.3 : y+f*1.05, L.v,{fs:f,c:L.c,num:true});
+        if(L.n && b-a>=tw(L.n,sfs*0.85)+20 && !inner) txt(mid, dir<0? y-f*0.3-f*1.05 : y+f*1.05+sfs*1.05, L.n,{fs:sfs*0.85,c:L.c||C('muted')});
+      } else { // staggered outward with a leader
+        let k=1; occupied[key]=occupied[key]||[];
+        const x0=mid-vw/2, x1=mid+vw/2;
+        while(occupied[key].some(([r,u,v])=>r===k && !(x1<u||x0>v))) k++;
+        occupied[key].push([k,x0,x1]); maxK=Math.max(maxK,k);
+        const ty = dir<0? y-f*0.3-row*k : y+f*1.05+row*k;
+        line(mid,y,mid,dir<0? ty+f*0.25 : ty-f*0.95,C('muted'),3,'stroke-dasharray="8 6"');
+        txt(mid,ty,L.v,{fs:f,c:L.c,num:true});
+      }
+    }
+    return maxK;
+  }
+  // top: per lift wall/beam -> rail -> rail -> wall/beam
+  const topPts=[], topLab=[];
+  R.lifts.forEach(({o,x0},i)=>{ const cx=x0+o.carL; let r1,r2; if(o.L==='NF'){ r1=cx-o.railOff; r2=cx+o.extW+o.railOff; } else { r1=cx; r2=cx+o.extW; }
+    const mc=MC(o), cw={v:o.gapCwt,n:o.L==='NF'?T.cwt:T.rsSide,c:mc}, ot={v:o.gapOth,n:o.L==='NF'?T.single:T.rsFree,c:mc};
+    if(i>0){ topLab.push({v:R.beam.w,n:T.beam}); }
+    topPts.push(x0,r1,r2); topLab.push(o.side==='L'?cw:ot,{v:o.L==='NF'?o.dbgCar:o.extW,n:o.L==='NF'?T.dbg:T.car},o.side==='L'?ot:cw);
+    if(i===R.lifts.length-1) topPts.push(x0+o.I.W); else topPts.push(x0+o.I.W);
+  });
+  const yTop=-t-(rear?fs*2.2:fs*1.2);
+  const kTop=dimChain(topPts,yTop,topLab,-1);
+  dimChain([0,W],yTop-fs*2.6-row*(kTop+0.6),[{v:W,n:T.shaftW}],-1);
+  // bottom 1: real front wall — shoulder | gap | frame | clear | frame | gap | (pillar) ... | shoulder
+  const bp=[0], bl=[];
+  R.lifts.forEach(({o,x0},i)=>{ const op=R.openings[i], o1=x0+o.o1, a=op.a-op.cutA, b=op.b+op.cutB, gc=g=>g<P.shGap?C('warn'):C('ok');
+    if(i===0) bl.push({v:a,n:op.cutA?`${T.shL} (${T.now} ${op.a})`:T.shL,c:op.cutA?C('cut'):''});
+    else bl.push({v:a-bp[bp.length-1],n:T.pillar});
+    bp.push(a);
+    if(o.shGapL>0){ bp.push(o1-o.legL); bl.push({v:o.shGapL,n:T.gap,c:gc(o.shGapL)}); }
+    bp.push(o1); bl.push({v:o.legL,n:T.frame});
+    bp.push(o1+o.clear); bl.push({v:o.clear,n:T.clear,c:C('accent')});
+    bp.push(o1+o.clear+o.legR); bl.push({v:o.legR,n:T.frame});
+    if(o.shGapR>0){ bp.push(b); bl.push({v:o.shGapR,n:T.gap,c:gc(o.shGapR)}); }
+  });
+  { const last=R.openings[R.openings.length-1], b=last.b+last.cutB; bp.push(W); bl.push({v:W-b,n:last.cutB?`${T.shR} (${T.now} ${W-last.b})`:T.shR,c:last.cutB?C('cut'):''}); }
+  const yB1=D+t+fs*1.3;
+  const kB=dimChain(bp,yB1,bl,1);
+  // bottom 2: car position in the shaft (wall to car exterior)
+  const cp=[0], cl=[]; let prev=0;
+  R.lifts.forEach(({o,x0})=>{ const a=x0+o.carL, b=a+o.extW; cp.push(a,b); cl.push({v:a-prev,n:T.wallToCar},{v:o.extW,n:T.car}); prev=b; });
+  cp.push(W); cl.push({v:W-prev,n:T.wallToCar});
+  const yB2=yB1+fs*2.6+row*(kB+0.8);
+  dimChain(cp,yB2,cl,1);
+  txt(W/2,yB2+fs*2.4+row*1.2,T.carPos,{fs:sfs,c:C('muted')});
+  // right: depth chain
+  const dv=(pts,x,labels)=>{ line(x,pts[0],x,pts[pts.length-1],C('muted'),5); pts.forEach(p=>line(x-22,p+22,x+22,p-22,C('ink'),7));
+    for(let i=0;i<pts.length-1;i++){ const L=labels[i],a=pts[i],b=pts[i+1]; if(!L) continue; const f=b-a>=tw(L.v,fs)+fs?fs:sfs;
+      txt(x-f*0.35,(a+b)/2,L.v,{fs:f,rot:-90,c:L.c,num:true}); if(L.n && b-a>tw(L.n,sfs)+40) txt(x+sfs*1.15,(a+b)/2,L.n,{fs:sfs,rot:-90,c:C('muted')}); } };
+  // DBG-CW: outside the shaft wall on the counterweight side, with extension lines to the CWT rails
+  let rOff=0;
+  for(const c of cwDims){ const x=c.side==='L'? c.x-fs*1.5 : c.x+fs*1.5;
+    line(c.side==='L'?x-30:c.x,c.yt,c.side==='L'?c.x:x+30,c.yt,C('muted'),3,'stroke-dasharray="10 8"'); line(c.side==='L'?x-30:c.x,c.yb,c.side==='L'?c.x:x+30,c.yb,C('muted'),3,'stroke-dasharray="10 8"');
+    line(x,c.yt,x,c.yb,C('muted'),5); [c.yt,c.yb].forEach(p=>line(x-22,p+22,x+22,p-22,C('ink'),7));
+    txt(x-sfs*0.35,(c.yt+c.yb)/2,`DBG-CW ${c.v}`,{fs:sfs,rot:-90,c:C('ink'),num:true});
+    if(c.side==='R') rOff=fs*2.2; }
+  const cy=o0.cy, frontGap=D-cy-o0.extD;
+  dv([0,cy,cy+o0.extD,D], W+t+fs*1.6+rOff, [{v:cy,n:T.back},{v:o0.id,n:T.carInt},{v:frontGap,n:T.front,c:frontGap<P.front?C('warn'):''}]);
+  dv([0,D], W+t+fs*4.2+rOff, [{v:D,n:T.shaftD}]);
+  txt(-t-fs*(cwDims.some(c=>c.side==='L')?3.4:0.9),D/2,T.view,{fs:sfs,rot:-90,c:C('muted')});
+  const m=fs*0.8;
+  const vb=[bb.x0-m,bb.y0-m,bb.x1-bb.x0+2*m,bb.y1-bb.y0+2*m];
+  return `<svg viewBox="${vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${T.view}" direction="ltr" ${pr?`width="${Math.round(vb[2])}" height="${Math.round(vb[3])}" style="background:#fff"`:''}>${pr?`<rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="#fff"/>`:''}${s.join('')}</svg>`;
+}
+
+/* ---------- PDF export (English, no Hebrew) ---------- */
+async function exportPDF(R, project, order){
+  const st=$('pdfst'); const say=(m,c='')=>{ if(st){ st.textContent=m; st.className='pdfst '+c; } };
+  try{
+    if(!window.jspdf){ say('ספריית ה-PDF לא נטענה','warn'); return; }
+    const dl = window.claude?.use ? await window.claude.use('downloads') : null;
+    if(!dl && window.claude){ say('הורדת קבצים זמינה רק בצפייה דרך claude.ai','warn'); return; }
+    say('מכין PDF…');
+    const svg=drawPlan(R,{lang:'en',print:true});
+    const vb=svg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+    const scale=3200/Math.max(vb[2],vb[3]);
+    const img=new Image(); const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
+    await new Promise((ok,bad)=>{ img.onload=ok; img.onerror=bad; img.src=url; });
+    const cv=document.createElement('canvas'); cv.width=Math.round(vb[2]*scale); cv.height=Math.round(vb[3]*scale);
+    const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height); URL.revokeObjectURL(url);
+    const png=cv.toDataURL('image/jpeg',0.9);
+    const { jsPDF } = window.jspdf; const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a3'});
+    const PW=420, PH=297, M=12, side=118;
+    // drawing area
+    const aw=PW-2*M-side-8, ah=PH-2*M-14, r=Math.min(aw/cv.width, ah/cv.height);
+    doc.addImage(png,'JPEG',M,M+14,cv.width*r,cv.height*r,undefined,'FAST');
+    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('IDAN LIFTS — SHAFT TOP VIEW / SETTING-OUT',M,M+6);
+    // info panel
+    let x=PW-M-side, y=M+2; const ln=(k,v)=>{ doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90); doc.text(k,x,y); doc.setTextColor(13); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text(String(v),x+side,y,{align:'right'}); y+=6.2; };
+    const hd=t=>{ y+=2; doc.setDrawColor(200); doc.line(x,y-4,x+side,y-4); doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(53,84,209); doc.text(t,x,y+1); y+=7; };
+    doc.setDrawColor(210); doc.rect(x-4,M-4,side+8,PH-2*M+8);
+    hd('PROJECT'); ln('Project / Ref', (project||'-').replace(/[^\x20-\x7E]/g,'') || '-'); ln('Date', new Date().toLocaleDateString('en-GB'));
+    const I=R.I;
+    hd('SHAFT'); ln(R.duplex?'Common shaft W x D':'Shaft W x D', `${R.W} x ${R.D} mm`); ln('Stops', I.stops);
+    if(R.duplex) ln('Pillar between openings', `${I.pillar} mm`), ln('Separation beam', `${R.beam.w} mm`);
+    R.lifts.forEach(({o},i)=>{
+      hd(R.duplex? (i===0?'LIFT LEFT':'LIFT RIGHT') : 'LIFT');
+      ln('Model / layout', `${o.model} / ${o.L==='NF'?'Normal frame':'Rucksack'}`);
+      ln('Load / persons', `${o.q} kg / ${o.persons}`);
+      ln('Car internal W x D', `${o.iw} x ${o.id} mm`);
+      ln('Car DBG / CWT DBG', `${o.dbgCar} / ${o.dbgCwt}`);
+      ln('CWT side', o.side==='L'?'Left':'Right');
+      ln('CWT gap / other side', `${o.gapCwt} / ${o.gapOth}`);
+      ln('Door', `${o.clear} ${({T2:'2-panel telescopic',T3:'3-panel telescopic',C:'centre opening'})[o.dt]}`);
+      if(o.dt!=='C') ln('Opening direction', o.doorDir==='R'?'Opens to right':'Opens to left');
+      ln('Landing frame L / R', `${o.legL} / ${o.legR}`);
+      ln('Frame-shoulder gap L / R', `${o.shGapL} / ${o.shGapR}`);
+      ln('Car front panels L / R', `${o.panL} / ${o.panR}`);
+      ln('Front gap (wall-car)', `${R.D-o.cy-o.extD}`);
+      ln('Controller', ({big:'Cabinet 450x250x2000',small:'Small 160x150x2000',frame:'In landing frame, top floor'})[o.ctrl.type]);
+    });
+    y+=3; doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(80);
+    doc.text(doc.splitTextToSize('Shoulders shown as measured on site. Landing frames are drawn at their exact required position, centred in the wall opening with clearance to the shoulders. All dimensions in mm.',side),x,y);
+    if(order&&order.length){ // page 2: order data for the Felesa ELECTRIC ORDER FORM
+      doc.addPage('a4','portrait'); let yy=20; doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(13); doc.text('ORDER DATA — ELECTRIC ORDER FORM',15,yy); yy+=10;
+      for(const [k,v] of order){ doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90); doc.text(String(k),15,yy);
+        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(13); const lines=doc.splitTextToSize(String(v).replace(/[^ -~]/g,''),120); doc.text(lines,75,yy); yy+=Math.max(7,lines.length*5+2); doc.setDrawColor(225); doc.line(15,yy-4.5,195,yy-4.5); }
+    }
+    const name=`${(project||'shaft').replace(/[^\w\- ]+/g,'').trim()||'shaft'} - top view.pdf`;
+    if(dl) await dl.save({filename:name,data:doc.output('blob')}); else browserSave(name,doc.output('blob'));
+    say('ה-PDF נשמר','ok');
+  }catch(e){ say(e?.code==='declined'?'ההורדה בוטלה':'שגיאה ביצירת PDF: '+(e?.message||e?.code||e),'warn'); }
+}
+
+/* ---------- 3D view (three.js) — one or two lifts ---------- */
+let R3=null, CAM='car';
+function view3d(R, host){
+  if(!window.THREE){ host.insertAdjacentHTML('beforeend','<div class="lbl">תצוגת תלת-ממד לא נטענה</div>'); return; }
+  if(R3){ R3.dispose(); R3=null; }
+  const I=R.I, mm=v=>v/1000, W=mm(R.W), D=mm(R.D), T=mm(200), DH=2.1;
+  const n=Math.max(2,Math.min(40,I.stops)), FH=mm(P.floorH), PIT=mm(P.pit), HR=mm(P.head);
+  const topF=(n-1)*FH, TOP=topF+HR;
+  const css=getComputedStyle(document.documentElement);
+  const cssCol=n2=>new THREE.Color(css.getPropertyValue(n2).trim()||'#888');
+  const scene=new THREE.Scene();
+  const cam=new THREE.PerspectiveCamera(36,1,0.05,400);
+  const ren=new THREE.WebGLRenderer({antialias:true,alpha:true}); ren.setPixelRatio(Math.min(2,devicePixelRatio||1));
+  host.prepend(ren.domElement);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x8a9399,0.8));
+  const sun=new THREE.DirectionalLight(0xffffff,0.7); sun.position.set(-3,TOP+6,6); scene.add(sun);
+  const M=(c,o2={})=>new THREE.MeshStandardMaterial({color:c,roughness:o2.r??0.85,metalness:o2.m??0,transparent:o2.op!==undefined,opacity:o2.op??1,depthWrite:o2.op===undefined||o2.op>0.6});
+  const box=(w,h,d,mat,x,y,z)=>{ if(w<=0.0005||h<=0.0005||d<=0.0005) return null; const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); scene.add(m); return m;};
+  const concrete=M(0xb9c0c4,{op:0.22}), front=M(0xc9cfd2,{op:0.5}), cutMat=M(0xe8743b,{op:0.75}), slab=M(0xd9dcd6,{op:0.9});
+  const steel=M(0xb4bcc2,{m:0.3,r:0.45}), railM=M(0x2a3238,{m:0.5,r:0.4}), accentM=M(0x0b6e8a,{m:0.3,r:0.4}), warnM=M(0xd99a2b,{m:0.2,r:0.5}), gapM=M(0x13865c,{op:0.55});
+  const H=TOP+PIT, yc=(TOP-PIT)/2, fz=D+T/2;
+  box(W+2*T,0.08,D+2*T,M(0x8f989d),W/2,-PIT-0.04,D/2);
+  box(W+2*T,0.12,D+2*T,M(0xc9cfd2,{op:0.35}),W/2,TOP+0.06,D/2);
+  // front wall: full-height solids between openings + infill above the doors on every floor
+  const ops=R.openings.map(op=>({a:mm(op.a-op.cutA),b:mm(op.b+op.cutB),ca:mm(op.cutA),cb:mm(op.cutB),a0:mm(op.a),b0:mm(op.b)}));
+  let px=-T;
+  for(const op of ops){ box(op.a-px,H,T,front,(px+op.a)/2,yc,fz); if(op.ca) box(op.ca,H,T,cutMat,op.a+op.ca/2,yc,fz); if(op.cb) box(op.cb,H,T,cutMat,op.b0+op.cb/2,yc,fz); px=op.b; }
+  box(W+T-px,H,T,front,(px+W+T)/2,yc,fz);
+  const single=R.lifts.length===1, o0=R.lifts[0].o, rr=single?o0.rear:null, sd=single?o0.sideDoor:null;
+  if(rr){ const rc=k=>mm(rr.cuts.find(c=>c.side===k)?.mm||0), rL=mm(rr.shL), rR=W-mm(rr.shR);
+    box(T+rL-rc('L'),H,T,concrete,(-T+rL-rc('L'))/2,yc,-T/2); box(W-rR-rc('R')+T,H,T,concrete,(rR+rc('R')+W+T)/2,yc,-T/2);
+  } else box(W+2*T,H,T,concrete,W/2,yc,-T/2);
+  const sx=I.s90==='L'?-T/2:W+T/2;
+  if(sd){ const a=mm(sd.sb), b=D-mm(sd.sf); box(T,H,a,concrete,sx,yc,a/2); box(T,H,D-b,concrete,sx,yc,(b+D)/2); }
+  if(!(sd&&I.s90==='L')) box(T,H,D,concrete,-T/2,yc,D/2);
+  if(!(sd&&I.s90==='R')) box(T,H,D,concrete,W+T/2,yc,D/2);
+  if(R.beam){ for(let k=0;k<n;k++) box(mm(R.beam.w),0.12,D,M(0x5d6b73,{m:0.3,r:0.5}),mm(R.beam.x+R.beam.w/2),k*FH+2.6,D/2); }
+  const label=(txt,x,y,z)=>{ const c=document.createElement('canvas'); c.width=128;c.height=64; const g=c.getContext('2d'); g.fillStyle='#1d2a33'; g.fillRect(0,0,128,64); g.fillStyle='#fff'; g.font='bold 40px monospace'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(txt,64,34);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c)})); sp.scale.set(0.34,0.17,1); sp.position.set(x,y,z); scene.add(sp); };
+  for(const op of ops) box(op.b-op.a,PIT,T,front,(op.a+op.b)/2,-PIT/2,fz);
+  for(let k=0;k<n;k++){
+    const y=k*FH, hNext = k===n-1 ? TOP-y : FH;
+    for(const op of ops) box(op.b-op.a,hNext-DH-0.25,T,front,(op.a+op.b)/2,y+DH+0.25+(hNext-DH-0.25)/2,fz);
+    box(W+2*T+1.6,0.06,1.4,slab,W/2,y-0.03,D+T+0.7);
+    label(String(k), I.SL>=I.SR? -T-0.45 : W+T+0.45, y+2.3, D+T+0.15);
+  }
+  for(const {o,x0:X0} of R.lifts){
+    const x0=mm(X0), o1=x0+mm(o.o1), cl=mm(o.clear), jl=mm(o.legL), jr=mm(o.legR), gL=mm(o.shGapL), gR=mm(o.shGapR);
+    const dark=M(cssCol(MODELS[modelKey(o)].v),{m:0.3,r:0.5});
+    for(let k=0;k<n;k++){ const y=k*FH;
+      box(jl,DH+0.1,0.05,steel,o1-jl/2,y+(DH+0.1)/2,D+T+0.025);
+      box(jr,DH+0.1,0.05,steel,o1+cl+jr/2,y+(DH+0.1)/2,D+T+0.025);
+      box(cl+jl+jr,0.15,0.05,steel,o1+cl/2,y+DH+0.075+0.05,D+T+0.025);
+      box(cl,DH,0.02,M(0xa9b2b8,{m:0.3,r:0.4}),o1+cl/2,y+DH/2,D-0.04);
+      if(gL>0.001) box(gL,DH,0.03,gapM,o1-jl-gL/2,y+DH/2,D+T+0.02);
+      if(gR>0.001) box(gR,DH,0.03,gapM,o1+cl+jr+gR/2,y+DH/2,D+T+0.02);
+      if(rr){ const ro=mm(rr.o1), rjl=mm(Math.min(P.jamb,rr.jl)), rjr=mm(Math.min(P.jamb,rr.jr)); box(rjl,DH+0.1,0.05,steel,ro-rjl/2,y+(DH+0.1)/2,-T-0.025); box(rjr,DH+0.1,0.05,steel,ro+cl+rjr/2,y+(DH+0.1)/2,-T-0.025); box(cl,DH,0.02,accentM,ro+cl/2,y+DH/2,0.04); }
+      if(sd){ const so=mm(sd.o1); box(0.02,DH,cl,accentM,I.s90==='L'?0.04:W-0.04,y+DH/2,so+cl/2); }
+    }
+    const HW=mm(o.I.W), cx=x0+mm(o.carL), cw=mm(o.extW), cd=mm(o.extD), cz=mm(o.cy), ch=2.3, mz=cz+cd/2;
+    if(o.L==='NF'){
+      const r1=cx-mm(o.railOff), r2=cx+cw+mm(o.railOff);
+      box(0.016,H,0.09,railM,r1-0.04,yc,mz); box(0.016,H,0.09,railM,r2+0.04,yc,mz);
+      const cwx = x0+(o.side==='L'? mm(70) : HW-mm(70)), yb=Math.min(R.D-430,R.D-60), yt=Math.max(60,yb-o.dbgCwt);
+      box(0.09,H,0.016,railM,cwx,yc,mm(yt)); box(0.09,H,0.016,railM,cwx,yc,mm(yb));
+      box(0.12,1.6,mm(yb-yt-160),M(0x5d6b73,{m:0.3,r:0.6}),cwx,topF+0.4,mm((yt+yb)/2));
+      box(r2-r1,0.14,0.14,dark,(r1+r2)/2,ch+0.3,mz);
+      box(0.08,ch+0.3,0.14,dark,r1+0.05,(ch+0.3)/2,mz); box(0.08,ch+0.3,0.14,dark,r2-0.05,(ch+0.3)/2,mz);
+      box(r2-r1,0.14,0.14,dark,(r1+r2)/2,-0.1,mz);
+    } else {
+      const wx = x0+(o.side==='L'? mm(250) : HW-mm(250)), dc=mm(o.dbgCar);
+      box(0.09,H,0.016,railM,wx,yc,mz-dc/2); box(0.09,H,0.016,railM,wx,yc,mz+dc/2);
+      const ex=o.side==='L'?cx:cx+cw;
+      box(Math.abs(wx-ex),0.14,dc,dark,(wx+ex)/2,ch+0.3,mz); box(Math.abs(wx-ex),0.14,dc,dark,(wx+ex)/2,-0.1,mz);
+      box(0.11,1.6,dc-0.16,M(0x5d6b73,{m:0.3,r:0.6}),x0+(o.side==='L'?mm(90):HW-mm(90)),topF+0.4,mz);
+    }
+    const panel=M(0xd3d9dd,{m:0.25,r:0.4}), mirror=M(0xdfeef6,{m:0.35,r:0.1}), floorC=M(0x4a4f52,{r:0.9});
+    box(cw,0.08,cd,floorC,cx+cw/2,0.04,mz);
+    if(!rr){ box(cw,ch,0.03,panel,cx+cw/2,ch/2+0.08,cz+0.015); box(cw*0.6,1.0,0.01,mirror,cx+cw/2,1.3,cz+0.036); }
+    if(!(sd&&I.s90==='L')) box(0.03,ch,cd,panel,cx+0.015,ch/2+0.08,mz);
+    if(!(sd&&I.s90==='R')) box(0.03,ch,cd,panel,cx+cw-0.015,ch/2+0.08,mz);
+    box(o1-cx,ch,0.03,panel,(cx+o1)/2,ch/2+0.08,cz+cd-0.015);
+    box(cx+cw-o1-cl,ch,0.03,panel,(o1+cl+cx+cw)/2,ch/2+0.08,cz+cd-0.015);
+    box(cl,ch-DH,0.03,panel,o1+cl/2,DH+0.08+(ch-DH)/2,cz+cd-0.015);
+    box(cl,0.03,0.08,accentM,o1+cl/2,0.095,cz+cd+0.02);
+    if(o.ctrl.type==='frame'){ const fx=o.ctrl.side==='L'? o1-jl/2 : o1+cl+jr/2; box(Math.max(o.ctrl.side==='L'?jl:jr,0.16)-0.01,DH,0.08,warnM,fx,topF+DH/2,D+T+0.07); }
+  }
+  if(single && o0.ctrl.type!=='frame'){ const big=o0.ctrl.type==='big', w=big?0.45:0.16, d=big?0.25:0.15, left=I.SL>=I.SR; box(w,2.0,d,warnM,left?-T-0.9:W+T+0.9,topF+1.0,D+T+0.3); }
+
+  const views={ car:{t:new THREE.Vector3(W/2,1.1,D/2),th:-0.5,ph:0.72,r:Math.max(W,D)*2.4+2.4},
+                full:{t:new THREE.Vector3(W/2,(TOP-PIT)/2,D/2),th:-0.6,ph:1.35,r:Math.max(H*1.9,9)} };
+  let tg, th, ph, rad;
+  const cut=new THREE.Plane(new THREE.Vector3(0,-1,0),2.75);
+  const setView=k=>{ CAM=k; ren.clippingPlanes = k==='car'?[cut]:[]; const v=views[k]; tg=v.t.clone(); th=v.th; ph=v.ph; rad=v.r*Math.max(1,1.3/cam.aspect); host.querySelectorAll('.cams button').forEach(b=>b.classList.toggle('on',b.dataset.v===k)); };
+  const place=()=>{ cam.position.set(tg.x+rad*Math.sin(ph)*Math.sin(th), tg.y+rad*Math.cos(ph), tg.z+rad*Math.sin(ph)*Math.cos(th)); cam.lookAt(tg); };
+  const size=()=>{ const r=host.getBoundingClientRect(); const w=Math.max(200,r.width), h=Math.max(300,r.height); ren.setSize(w,h,false); cam.aspect=w/h; cam.updateProjectionMatrix(); };
+  let raf=0; const draw=()=>{ cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>ren.render(scene,cam)); };
+  size(); setView(CAM); place(); draw();
+  let drag=null;
+  const down=e=>{ if(e.target.closest('button')) return; drag={x:e.clientX,y:e.clientY,th,ph,ty:tg.y,sh:e.shiftKey||e.button===2}; host.setPointerCapture(e.pointerId); host.style.cursor='grabbing'; };
+  const move=e=>{ if(!drag) return; if(drag.sh){ tg.y=Math.min(TOP,Math.max(-PIT,drag.ty+(e.clientY-drag.y)*0.02*rad/8)); } else { th=drag.th-(e.clientX-drag.x)*0.008; ph=Math.min(1.5,Math.max(0.12,drag.ph-(e.clientY-drag.y)*0.006)); } place(); draw(); };
+  const up=()=>{ drag=null; host.style.cursor=''; };
+  const wheel=e=>{ e.preventDefault(); rad=Math.min(150,Math.max(1.5,rad*(1+Math.sign(e.deltaY)*0.08))); place(); draw(); };
+  const ctx=e=>e.preventDefault();
+  host.addEventListener('pointerdown',down); host.addEventListener('pointermove',move); host.addEventListener('pointerup',up); host.addEventListener('pointercancel',up);
+  host.addEventListener('wheel',wheel,{passive:false}); host.addEventListener('contextmenu',ctx);
+  const btns=[...host.querySelectorAll('.cams button')]; const onBtn=e=>{ setView(e.currentTarget.dataset.v); place(); draw(); };
+  btns.forEach(b=>b.addEventListener('click',onBtn));
+  const ro=new ResizeObserver(()=>{size();draw();}); ro.observe(host);
+  R3={dispose(){ ro.disconnect(); cancelAnimationFrame(raf); host.removeEventListener('pointerdown',down); host.removeEventListener('pointermove',move); host.removeEventListener('pointerup',up); host.removeEventListener('pointercancel',up); host.removeEventListener('wheel',wheel); host.removeEventListener('contextmenu',ctx); btns.forEach(b=>b.removeEventListener('click',onBtn));
+    scene.traverse(m=>{ m.geometry?.dispose(); if(m.material){ m.material.map?.dispose(); m.material.dispose(); } }); ren.dispose(); ren.domElement.remove(); }};
+}
+
+
+/* ---------- zoom & pan inside the top view: wheel / pinch / buttons, drag to pan, double-click to reset ---------- */
+function planZoom(){
+  document.querySelectorAll('.vplan').forEach(box=>{
+    const svg=box.querySelector('svg'); if(!svg||svg.dataset.pz) return; svg.dataset.pz='1';
+    const v0=svg.getAttribute('viewBox').split(/[\s,]+/).map(Number), v=[...v0], ar=v0[3]/v0[2];
+    box.insertAdjacentHTML('beforeend','<div class="pz"><button type="button" data-z="in" aria-label="הגדל">+</button><button type="button" data-z="out" aria-label="הקטן">−</button><button type="button" data-z="0" aria-label="תצוגה מלאה">⤢</button></div>');
+    const apply=()=>{ v[2]=Math.min(v0[2],Math.max(v0[2]/15,v[2])); v[3]=v[2]*ar;
+      v[0]=Math.min(v0[0]+v0[2]-v[2],Math.max(v0[0],v[0])); v[1]=Math.min(v0[1]+v0[3]-v[3],Math.max(v0[1],v[1]));
+      svg.setAttribute('viewBox',v.map(n=>+n.toFixed(1)).join(' ')); box.classList.toggle('zoomed',v[2]<v0[2]*0.99); };
+    const scale=()=>{ const r=svg.getBoundingClientRect(); return {r,s:Math.min(r.width/v[2],r.height/v[3])}; };
+    const toVB=(cx,cy)=>{ const {r,s}=scale(); return [v[0]+(cx-r.left-(r.width-v[2]*s)/2)/s, v[1]+(cy-r.top-(r.height-v[3]*s)/2)/s]; };
+    const zoomAt=(cx,cy,f)=>{ const [x,y]=toVB(cx,cy), w=Math.min(v0[2],Math.max(v0[2]/15,v[2]/f)), k=w/v[2];
+      v[0]=x-(x-v[0])*k; v[1]=y-(y-v[1])*k; v[2]=w; apply(); };
+    const centre=()=>{ const r=svg.getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; };
+    box.querySelector('.pz').onclick=e=>{ const z=e.target.closest('button')?.dataset.z; if(!z) return;
+      if(z==='0'){ v.splice(0,4,...v0); apply(); } else zoomAt(...centre(), z==='in'?1.6:1/1.6); };
+    svg.addEventListener('wheel',e=>{ const out=e.deltaY>0; if(out && !box.classList.contains('zoomed')) return; // let the page scroll
+      e.preventDefault(); zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*(e.deltaMode?0.05:0.0015))); },{passive:false});
+    svg.addEventListener('dblclick',()=>{ v.splice(0,4,...v0); apply(); });
+    const pts=new Map(); let pinch=null;
+    svg.addEventListener('pointerdown',e=>{ if(!box.classList.contains('zoomed')&&e.pointerType!=='touch') return;
+      pts.set(e.pointerId,[e.clientX,e.clientY]); svg.setPointerCapture(e.pointerId);
+      if(pts.size===2){ const [p,q]=[...pts.values()]; pinch=Math.hypot(p[0]-q[0],p[1]-q[1]); } });
+    svg.addEventListener('pointermove',e=>{ const prev=pts.get(e.pointerId); if(!prev) return;
+      const cur=[e.clientX,e.clientY]; pts.set(e.pointerId,cur);
+      if(pts.size===2){ const [p,q]=[...pts.values()], d=Math.hypot(p[0]-q[0],p[1]-q[1]); if(pinch) zoomAt((p[0]+q[0])/2,(p[1]+q[1])/2,d/pinch); pinch=d; return; }
+      if(!box.classList.contains('zoomed')) return;
+      const {s}=scale(); v[0]-=(cur[0]-prev[0])/s; v[1]-=(cur[1]-prev[1])/s; apply(); });
+    const up=e=>{ pts.delete(e.pointerId); if(pts.size<2) pinch=null; };
+    svg.addEventListener('pointerup',up); svg.addEventListener('pointercancel',up);
+  });
+}
+/* ---------- screen 1: measurement form -> request, plan, cutting report, Felesa order ---------- */
+// Measurement form = the existing paper form ("טופס מדידה ראשונית"): per floor A..G + heights + flooring,
+// planned row, TRAVEL/OH/pit, checklist, sea proximity, notes, photos.
+const MCOL = {
+  A:['A','עומק'], B:['B','רוחב'], C:['C','כתף ימין'], D:['D','קיר ימין לעמוד'], E:['E','עמוד'], F:['F','קיר שמאל לעמוד'], G:['G','כתף שמאל'],
+  hDoor:['','גובה פתח'], hLift:['','גובה הרמה בין קומות'] };
+const MCHK = [['dbgStd','DBG סטנדרט']];
+const LBL = k=>(MCOL[k][0]? `<span class="lt">${MCOL[k][0]}</span>` : '')+`<span class="ln">${MCOL[k][1]}</span>`;
+let OM=null, OLIST=[], OSEL=0, OREQ=null, DB=null, ASSETS=null;
+const blankRow=fl=>({fl:String(fl),A:'',B:'',C:'0',D:'',E:'',F:'',G:'0',hDoor:'',hLift:'',fin:''});
+function newOM(){ return {v:2,id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),prj:'',date:new Date().toISOString().slice(0,10),measurer:'',mode:'single',
+  plan:{A:'',B:'',C:'',D:'',E:'',F:'',G:'',hDoor:'',hLift:'',travel:'',oh:'',pit:''}, rows:[0,1,2,3,4].map(blankRow),
+  gen:{travel:'',oh:'',pit:''}, checks:{}, sea:'', notes:'', photos:[], dt:'T2', clear:'', ct:'big', cw:'', cd:'', ps:''}; }
+const mCols=()=>OM.mode==='duplex'?['A','B','C','D','F','G','hDoor','hLift']:['A','B','C','G','hDoor','hLift'];   // pillar E and the openings are computed
+const nv=v=>{ const x=parseFloat(v); return Number.isFinite(x)?x:null; };
+const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const oName=()=>(OM.prj||'project').replace(/[^\w\- ]+/g,'').trim()||'project';
+function persist(){ try{ localStorage.setItem('om-draft',JSON.stringify({...OM,photos:OM.photos.filter(p=>p.id)})); }catch{} }
+
+function oInit(){
+  try{ const d=JSON.parse(localStorage.getItem('om-draft')||'null'); OM = d&&d.v===2 ? {...newOM(),...d} : newOM(); }catch{ OM=newOM(); }
+  for(let p=4;p<=21;p++) for(const id of ['oPS','oLPS','oRPS']) $(id).insertAdjacentHTML('beforeend',`<option value="${p}"${id!=='oPS'&&p===8?' selected':''}>${p} נוסעים</option>`);
+  $('addFl').onclick=()=>{ OM.rows.push(blankRow(OM.rows.length)); oTable(); oRun(); };
+  $('delFl').onclick=()=>{ if(OM.rows.length>2){ OM.rows.pop(); oTable(); oRun(); } };
+  $('fo').addEventListener('input',e=>{ oFromSide(); if(e.target.name==='osm'){ oTable(); } oRun(); });
+  $('fo').addEventListener('submit',e=>e.preventDefault());
+  $('oTech').onclick=()=>openTech();
+  $('oSave').onclick=()=>saveFile(`${oName()} - measurement.json`, JSON.stringify(OM,null,1), $('oFileSt'));
+  $('oLoad').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+    if(/\.json$/i.test(f.name)){ try{ oApply(JSON.parse(await f.text())); $('oFileSt').textContent='הטופס נטען'; }catch(err){ $('oFileSt').textContent='הקובץ לא נקרא: '+err.message; } return; }
+    $('oLoad').disabled=true; try{ await importMeasurement(f,$('oFileSt')); } finally{ $('oLoad').disabled=false; } };
+  $('oSaveDb').onclick=()=>saveDb($('oFileSt'));
+  $('oNew').onclick=()=>{ OM=newOM(); fillMeasurer(); oApply(OM); $('oFileSt').textContent='טופס חדש'; };
+  $('oList').onchange=async e=>{ const id=e.target.value; if(!id||!DB) return; const s=await DB.collection('measurements').doc(id).get(); if(s.exists){ oApply(s.data()); $('oFileSt').textContent='המדידה נטענה'; } e.target.value=''; };
+  $('tSave').onclick=()=>saveDb($('tSt'));
+  $('tDone').onclick=()=>{ persist(); tab('order'); };
+  oSide(); oTable(); fillMeasurer(); hookCaps();
+}
+async function fillMeasurer(){
+  if(OM.measurer) return;
+  try{ const u=window.claude?.use? await window.claude.use('user'):null; const me=u? await u.me():null; if(me?.name && !OM.measurer){ OM.measurer=me.name; $('oNAME').value=me.name; const t=$('tName'); if(t) t.value=me.name; persist(); } }catch{}
+}
+async function hookCaps(){
+  try{ DB = window.claude?.use? await window.claude.use('db'):null; }catch{ DB=null; }
+  try{ ASSETS = window.claude?.use? await window.claude.use('assets'):null; }catch{ ASSETS=null; }
+  if(DB){ DB.collection('measurements').orderBy('updatedAt','desc').limit(200).onSnapshot(q=>{
+      $('oList').innerHTML='<option value="">טען מדידה שמורה…</option>'+q.docs.map(d=>{ const x=d.data(); return `<option value="${esc(d.id)}">${esc(x.prj||'ללא שם')} · ${esc(x.date||'')} · ${esc(x.measurer||'')}</option>`; }).join('');
+    }, ()=>{}); }
+  else { $('oSaveDb').disabled=true; $('oList').disabled=true; $('oList').innerHTML='<option>שמירה במערכת זמינה בצפייה דרך claude.ai</option>'; }
+}
+async function saveDb(st){
+  persist();
+  if(!DB){ st.textContent='שמירה במערכת זמינה רק בצפייה דרך claude.ai — הטיוטה נשמרה בדפדפן'; st.className='pdfst warn'; return; }
+  try{ await DB.collection('measurements').doc(OM.id).set({...OM,photos:OM.photos.filter(p=>p.id),updatedAt:new Date().toISOString()}); st.textContent='נשמר במערכת'; st.className='pdfst ok'; }
+  catch(e){ st.textContent=e?.code==='permission_denied'?'אין הרשאת כתיבה — בקש מעידן הרשאת עריכה':'השמירה נכשלה'; st.className='pdfst warn'; }
+}
+function oSide(){
+  $('oPRJ').value=OM.prj; $('oDATE').value=OM.date; $('oNAME').value=OM.measurer;
+  document.querySelector(`input[name=osm][value="${OM.mode}"]`).checked=true; document.querySelector(`input[name=odt][value="${OM.dt||'T2'}"]`).checked=true;
+  $('oCL').value=OM.clear||''; $('oCT').value=OM.ct||'big'; $('oCW').value=OM.cw||''; $('oCD').value=OM.cd||''; $('oPS').value=OM.ps||'';
+  for(const p of ['oL','oR']){ const s=OM.sides?.[p]||{K:p==='oR'?'same':'',PS:'8',CW:'',CD:''}; $(p+'K').value=s.K; $(p+'PS').value=s.PS||'8'; $(p+'CW').value=s.CW||''; $(p+'CD').value=s.CD||''; }
+  oCabVis();
+}
+function oFromSide(){
+  OM.prj=$('oPRJ').value; OM.date=$('oDATE').value; OM.measurer=$('oNAME').value;
+  OM.mode=document.querySelector('input[name=osm]:checked').value; OM.dt=document.querySelector('input[name=odt]:checked').value;
+  OM.clear=$('oCL').value; OM.ct=$('oCT').value; OM.cw=$('oCW').value; OM.cd=$('oCD').value; OM.ps=$('oPS').value;
+  OM.sides=Object.fromEntries(['oL','oR'].map(p=>[p,{K:$(p+'K').value,PS:$(p+'PS').value,CW:$(p+'CW').value,CD:$(p+'CD').value}]));
+  oCabVis(); persist();
+}
+function oCabVis(){ // duplex: a cabin choice per lift instead of one
+  const dup=OM.mode==='duplex'; $('oSingleCab').hidden=dup; $('oDupCab').hidden=!dup;
+  for(const p of ['oL','oR']){ const k=$(p+'K').value; $(p+'PS').hidden=k!=='ps'; $(p+'SZ').hidden=k!=='size'; }
+}
+function shaftKeySvg(dup){ // small explanatory diagram of the letters, like the paper form
+  const c='currentColor';
+  return dup? `<svg viewBox="0 0 320 120" aria-hidden="true"><rect x="20" y="14" width="280" height="60" fill="none" stroke="${c}" stroke-width="3"/>
+    <text x="160" y="10" font-size="11" text-anchor="middle" fill="${c}">B</text><text x="308" y="48" font-size="11" fill="${c}">A</text>
+    <path d="M20 74h30M135 74h26M270 74h30" stroke="${c}" stroke-width="6"/><path d="M20 66h141M161 66h139" stroke="#14a38b" stroke-width="2"/>
+    <text x="90" y="62" font-size="11" text-anchor="middle" fill="#14a38b">F</text><text x="230" y="62" font-size="11" text-anchor="middle" fill="#14a38b">D</text>
+    <text x="35" y="96" font-size="11" text-anchor="middle" fill="${c}">G</text><text x="148" y="96" font-size="11" text-anchor="middle" fill="${c}">E</text><text x="285" y="96" font-size="11" text-anchor="middle" fill="${c}">C</text></svg>`
+  : `<svg viewBox="0 0 200 120" aria-hidden="true"><rect x="20" y="14" width="160" height="60" fill="none" stroke="${c}" stroke-width="3"/>
+    <text x="100" y="10" font-size="11" text-anchor="middle" fill="${c}">B</text><text x="188" y="48" font-size="11" fill="${c}">A</text>
+    <path d="M20 74h40M140 74h40" stroke="${c}" stroke-width="6"/>
+    <text x="40" y="96" font-size="11" text-anchor="middle" fill="${c}">G</text><text x="160" y="96" font-size="11" text-anchor="middle" fill="${c}">C</text></svg>`;
+}
+function triBtns(name,val,cls=''){
+  return `<span class="tri ${cls}" data-tri="${name}"><button type="button" class="${val==='y'?'on y':''}" data-v="y" aria-label="כן">✓</button><button type="button" class="${val==='n'?'on n':''}" data-v="n" aria-label="לא">✗</button></span>`;
+}
+function setTri(name,v){ const [g,k]=name.split(':');
+  if(g==='chk') OM.checks[k]=OM.checks[k]===v?'':v; else if(g==='sea') OM.sea=OM.sea===v?'':v; else if(g==='fin') OM.rows[+k].fin=OM.rows[+k].fin===v?'':v; persist(); }
+function oTable(){
+  const dup=OM.mode==='duplex', cols=mCols();
+  $('shKey').innerHTML=shaftKeySvg(dup);
+  const head=`<tr><th>קומה</th>${cols.map(k=>`<th><span class="lth">${LBL(k)}</span></th>`).join('')}<th>ריצוף</th></tr>`;
+  const plan=`<tr class="planrow"><td>בתוכנית</td>${cols.map(k=>`<td><input data-p="${k}" value="${esc(OM.plan[k])}" type="number" inputmode="numeric" aria-label="בתוכנית ${MCOL[k][1]}"></td>`).join('')}<td></td></tr>`;
+  const body=OM.rows.map((r,i)=>`<tr><td><input data-r="${i}" data-k="fl" value="${esc(r.fl)}" type="text" aria-label="קומה"></td>${cols.map(k=>`<td><input data-r="${i}" data-k="${k}" value="${esc(r[k])}" type="number" inputmode="numeric" aria-label="${MCOL[k][1]} קומה ${esc(r.fl)}"></td>`).join('')}<td>${triBtns('fin:'+i,r.fin,'sm')}</td></tr>`).join('');
+  $('mt').innerHTML=head+plan+body;
+  $('mExtra').innerHTML=`
+    <div class="mgrid">
+      <div><p class="specs-t">כללי</p><div class="row3">
+        <label>TRAVEL<input data-g="travel" value="${esc(OM.gen.travel)}" type="number" inputmode="numeric"></label>
+        <label>OH<input data-g="oh" value="${esc(OM.gen.oh)}" type="number" inputmode="numeric"></label>
+        <label>בור<input data-g="pit" value="${esc(OM.gen.pit)}" type="number" inputmode="numeric"></label></div>
+        <div class="row3 planned"><label>בתוכנית TRAVEL<input data-p="travel" value="${esc(OM.plan.travel)}" type="number"></label><label>בתוכנית OH<input data-p="oh" value="${esc(OM.plan.oh)}" type="number"></label><label>בתוכנית בור<input data-p="pit" value="${esc(OM.plan.pit)}" type="number"></label></div>
+      </div>
+      <div><p class="specs-t">בדיקות</p><ul class="chk">${MCHK.map(([k,t])=>`<li><span>${t}</span>${triBtns('chk:'+k,OM.checks[k])}</li>`).join('')}<li><span>קרבה לים</span>${triBtns('sea:x',OM.sea)}</li></ul></div>
+    </div>
+    ${OM.doubts?.length?`<div class="doubts"><b>ספקות מהייבוא · ${esc(OM.src||'')}</b><ul>${OM.doubts.map(d=>`<li>${esc(d)}</li>`).join('')}</ul></div>`:''}
+    <label class="notesl">הערות<textarea id="mNotes" rows="3">${esc(OM.notes)}</textarea></label>
+    <div class="photos">${photoHtml()}<label class="addph">+ תמונה<input type="file" accept="image/*" capture="environment" multiple hidden data-ph></label></div>`;
+  bindMeasure($('mt').parentElement.parentElement);
+}
+function photoHtml(){ return OM.photos.map((p,i)=>`<figure><img src="${p.id?'/_blob/'+p.id:p.data}" alt="תמונה ${i+1}"><button type="button" data-delph="${i}" aria-label="מחק תמונה">×</button></figure>`).join(''); }
+function bindMeasure(root){
+  root.querySelectorAll('input[data-r]').forEach(inp=>inp.oninput=()=>{ OM.rows[+inp.dataset.r][inp.dataset.k]=inp.value; persist(); oCalc(); clearTimeout(bindMeasure.t); bindMeasure.t=setTimeout(oRun,350); });
+  root.querySelectorAll('input[data-p]').forEach(inp=>inp.oninput=()=>{ OM.plan[inp.dataset.p]=inp.value; persist(); clearTimeout(bindMeasure.t); bindMeasure.t=setTimeout(oRun,350); });
+  root.querySelectorAll('input[data-g]').forEach(inp=>inp.oninput=()=>{ OM.gen[inp.dataset.g]=inp.value; persist(); clearTimeout(bindMeasure.t); bindMeasure.t=setTimeout(oRun,350); });
+  root.querySelectorAll('input[data-h]').forEach(inp=>inp.oninput=()=>{ OM[inp.dataset.h]=inp.value; persist(); });
+  const nt=root.querySelector('#mNotes,#tNotes'); if(nt) nt.oninput=()=>{ OM.notes=nt.value; persist(); };
+  root.querySelectorAll('[data-tri] button').forEach(b=>b.onclick=()=>{ const g=b.parentElement; setTri(g.dataset.tri,b.dataset.v); const v=b.dataset.v;
+    g.querySelectorAll('button').forEach(x=>x.className=''); const cur=g.dataset.tri.startsWith('chk:')?OM.checks[g.dataset.tri.slice(4)]:g.dataset.tri.startsWith('sea')?OM.sea:OM.rows[+g.dataset.tri.slice(4)].fin; if(cur) b.className='on '+v; });
+  root.querySelectorAll('input[data-ph]').forEach(inp=>inp.onchange=async()=>{ for(const f of inp.files) await addPhoto(f); inp.value=''; refreshPhotos(); });
+  root.querySelectorAll('[data-delph]').forEach(b=>b.onclick=()=>{ OM.photos.splice(+b.dataset.delph,1); persist(); refreshPhotos(); });
+  oCalc();
+}
+function refreshPhotos(){ document.querySelectorAll('.photos').forEach(el=>{ el.querySelectorAll('figure').forEach(f=>f.remove()); el.insertAdjacentHTML('afterbegin',photoHtml()); bindMeasure(el); }); }
+async function addPhoto(file){
+  const img=await createImageBitmap(file); const s=Math.min(1,1600/Math.max(img.width,img.height));
+  const cv=document.createElement('canvas'); cv.width=Math.round(img.width*s); cv.height=Math.round(img.height*s); cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+  const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.82));
+  if(ASSETS){ try{ const a=await ASSETS.upload(blob); OM.photos.push({id:a.id}); persist(); return; }catch{} }
+  const sm=document.createElement('canvas'), k=Math.min(1,700/Math.max(cv.width,cv.height)); sm.width=cv.width*k; sm.height=cv.height*k; sm.getContext('2d').drawImage(cv,0,0,sm.width,sm.height);
+  OM.photos.push({data:sm.toDataURL('image/jpeg',0.6)});
+}
+function oCalc(){ // derived right/left openings in duplex
+  OM.rows.forEach((r,i)=>{ document.querySelectorAll(`[data-or="${i}"]`).forEach(c=>{ const d=nv(r.D),cc=nv(r.C)||0,f=nv(r.F),g=nv(r.G)||0,b=nv(r.B),e=nv(r.E);
+    const ok=b&&d!=null&&e!=null&&f!=null; const diff=ok? b-(d+e+f):0;
+    c.innerHTML = d!=null&&f!=null? `${d-cc} / ${f-g}${ok&&Math.abs(diff)>15?` <span class="warnc" title="B ≠ D+E+F">Δ${diff}</span>`:''}`:''; }); });
+}
+function oReq(){
+  const dup=OM.mode==='duplex';
+  const rows=OM.rows.map(r=>({fl:r.fl, W:nv(r.B), D:nv(r.A), SL:nv(r.G)||0, SR:nv(r.C)||0, OL: dup&&nv(r.F)!=null? nv(r.F)-(nv(r.G)||0):null, PIL: dup? (nv(r.B)!=null&&nv(r.D)!=null&&nv(r.F)!=null? nv(r.B)-nv(r.D)-nv(r.F) : nv(r.E)):null, hLift:nv(r.hLift), hDoor:nv(r.hDoor)}));
+  const ok=rows.filter(r=>r.W&&r.D&&(!dup||(r.OL&&r.PIL!=null)));
+  if(ok.length<2) return null;
+  const minW=Math.min(...ok.map(r=>r.W)), minD=Math.min(...ok.map(r=>r.D));
+  const I={W:minW-20, D:minD-20, SL:Math.max(...ok.map(r=>r.SL)), SR:Math.max(...ok.map(r=>r.SR)), stops:rows.length,
+    dt:OM.dt||'T2', dir:'auto', en:'1', ct:OM.ct||'big', s90:'R', clear:+OM.clear||null, ex:true, mx:'ideal', ps:+OM.ps||null, cw:nv(OM.cw), cd:nv(OM.cd), sm:dup?'duplex':'single', beam:100, sides: dup?{L:sideReq('oL'),R:sideReq('oR')}:undefined};
+  if(dup){ const xL=Math.min(...ok.map(r=>r.SL+r.OL)), xR=Math.max(...ok.map(r=>r.SL+r.OL+r.PIL)); I.openL=xL-I.SL; I.pillar=xR-xL; }
+  return {I, rows, ok, minW, minD};
+}
+function oRun(){
+  if(!$('scrTech').hidden) return; // phone mode: results are computed when returning to the normal view
+  const out=$('oOut'), dup=OM.mode==='duplex';
+  OREQ=oReq();
+  if(!OREQ){ $('mSum').textContent=''; out.innerHTML='<div class="empty"><b>מלא את טופס המדידה</b>עומק ורוחב לפחות בשתי קומות'+(dup?', ובדופלקס גם קיר ימין לעמוד (D) וקיר שמאל לעמוד (F)':'')+'. התוכנה תחשב את המידות לבקשה, תמקם מעלית ומשקופים, ותפיק דוח ניסורים והזמנה לפלסה.</div>'; if(R3){R3.dispose();R3=null;} return; }
+  const {I,minW,minD}=OREQ;
+  $('mSum').innerHTML=`מינימום שנמדד: <b class="num">${minW}×${minD}</b> → לבקשה <b class="num">${I.W}×${I.D}</b>`;
+  OLIST = dup ? solveDuplex(I) : solve(I).list.map(singleR); OSEL=0;
+  oShow();
+}
+
+/* ---------- technician phone view ---------- */
+function openTech(){
+  oFromSide(); tab('tech');
+}
+function renderTech(){
+  const dup=OM.mode==='duplex', cols=mCols();
+  const fld=(attr,k,label,val,type='number')=>`<label><span class="lh">${label}</span><input ${attr}="${k}" value="${esc(val)}" type="${type}" ${type==='number'?'inputmode="numeric"':''}></label>`;
+  $('techIn').innerHTML=`
+  <header class="tech-h"><div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18"/><path d="M6.5 11l1.5-2 1.5 2M14.5 9l1.5 2 1.5-2"/></svg></div>
+    <div><h1>מדידה ראשונית</h1><p>עידן הנדסת מעליות</p></div></header>
+  <section class="tcard">
+    ${fld('data-h','prj','פרויקט',OM.prj,'text')}
+    <div class="row2">${fld('data-h','date','תאריך',OM.date,'date')}<label>שם המודד<input id="tName" data-h="measurer" value="${esc(OM.measurer)}" type="text"></label></div>
+    <div class="seg" role="radiogroup" aria-label="סוג פיר"><label><input type="radio" name="tsm" value="single" ${dup?'':'checked'}>פיר יחיד</label><label><input type="radio" name="tsm" value="duplex" ${dup?'checked':''}>דופלקס</label></div>
+    <div class="tkey">${shaftKeySvg(dup)}</div>
+  </section>
+  <details class="tcard"><summary>בתוכנית (לפי תוכנית האדריכל)</summary><div class="tgrid">${cols.map(k=>fld('data-p',k,LBL(k),OM.plan[k])).join('')}
+    ${fld('data-p','travel','TRAVEL',OM.plan.travel)}${fld('data-p','oh','OH',OM.plan.oh)}${fld('data-p','pit','בור',OM.plan.pit)}</div></details>
+  ${OM.rows.map((r,i)=>`<section class="tcard floor"><div class="fh"><label class="flname"><span>קומה</span><input data-r="${i}" data-k="fl" value="${esc(r.fl)}" type="text"></label>
+      <span class="finl">ריצוף ${triBtns('fin:'+i,r.fin)}</span></div>
+    <div class="tgrid">${cols.map(k=>`<label><span class="lh">${LBL(k)}</span><input data-r="${i}" data-k="${k}" value="${esc(r[k])}" type="number" inputmode="numeric"></label>`).join('')}</div>
+</section>`).join('')}
+  <div class="tadd"><button type="button" id="tAdd">+ קומה</button><button type="button" id="tDel">− קומה</button></div>
+  <section class="tcard"><p class="specs-t">כללי</p><div class="tgrid">${fld('data-g','travel','TRAVEL',OM.gen.travel)}${fld('data-g','oh','OH',OM.gen.oh)}${fld('data-g','pit','בור',OM.gen.pit)}</div></section>
+  <section class="tcard"><p class="specs-t">בדיקות</p><ul class="chk">${MCHK.map(([k,t])=>`<li><span>${t}</span>${triBtns('chk:'+k,OM.checks[k])}</li>`).join('')}<li><span>קרבה לים</span>${triBtns('sea:x',OM.sea)}</li></ul></section>
+  <section class="tcard"><label class="notesl">הערות<textarea id="tNotes" rows="4">${esc(OM.notes)}</textarea></label>
+    <div class="photos">${photoHtml()}<label class="addph">+ תמונה<input type="file" accept="image/*" capture="environment" multiple hidden data-ph></label></div></section>`;
+  const root=$('techIn');
+  bindMeasure(root);
+  root.querySelectorAll('input[name=tsm]').forEach(x=>x.onchange=()=>{ OM.mode=x.value; persist(); renderTech(); });
+  $('tAdd').onclick=()=>{ OM.rows.push(blankRow(OM.rows.length)); persist(); renderTech(); };
+  $('tDel').onclick=()=>{ if(OM.rows.length>2){ OM.rows.pop(); persist(); renderTech(); } };
+}
+
+function cutReport(R){
+  const {rows}=OREQ, rep=[], top=rows.length-1;
+  rows.forEach((r,fi)=>{
+    if(!r.W) return;
+    R.lifts.forEach(({o,x0},k)=>{
+      let eL,eR;
+      if(!R.duplex){ eL=r.SL; eR=r.W-r.SR; }
+      else if(k===0){ eL=r.SL; eR=r.SL+(r.OL||0); } else { eL=r.SL+(r.OL||0)+(r.PIL||0); eR=r.W-r.SR; }
+      const fa=x0+o.o1-o.legL, fb=x0+o.o1+o.clear+o.legR;
+      const e={fl:r.fl||String(fi), k, open:Math.round(eR-eL), lift:R.duplex?(k===0?'שמאל':'ימין'):'', cutL:Math.max(0,eL-fa), cutL50:Math.max(0,eL-(fa-P.shGap)), cutR:Math.max(0,fb-eR), cutR50:Math.max(0,fb+P.shGap-eR), note:''};
+      if(fi===top){
+        if(o.ctrl.type==='frame'){ const need=P.jambCtrl-P.jamb; if(o.ctrl.side==='L') e.cutL=Math.max(e.cutL,eL-(fa-need)); else e.cutR=Math.max(e.cutR,fb+need-eR); e.note='משקוף פיקוד 180 בצד '+sideName(o.ctrl.side); }
+        if(o.ctrl.type==='big'){ const sh=o.doorDir==='R'? r.SR : r.SL; if(sh<450) e.note=`ארון גדול: נדרשת כתף 450 בצד הפתיחה (${sideName(o.doorDir)}) — נמדד ${sh}`; else e.note='ארון גדול בצד '+sideName(o.doorDir); }
+      }
+      e.cutL=Math.max(0,Math.round(e.cutL)); e.cutR=Math.max(0,Math.round(e.cutR));
+      rep.push(e);
+    });
+  });
+  return rep;
+}
+function cutVisual(R,rep){
+  const dup=R.duplex, fls=[...new Set(rep.map(e=>e.fl))];
+  const cell=(v,v50)=> v? `<b class="cv">נסר ${v}</b>${v50>v?`<small>ל-50: ${v50}</small>`:''}` : `<b class="okv">✓</b>${v50?`<small>ל-50: ${v50}</small>`:''}`;
+  const wall=(name,v,v50)=>`<div class="wall${v?' cut':''}"><span class="wn">${name}</span>${cell(v,v50)}</div>`;
+  const op=e=>`<div class="op"><span class="wn">${dup?'פתח '+e.lift:'פתח'}</span><span class="num">${e.open}</span></div>`;
+  const rows=fls.map(fl=>{ const [a,b]=[0,1].map(k=>rep.find(e=>e.fl===fl&&e.k===k));
+    const notes=[a?.note,b?.note].filter(Boolean).map((n,i)=>`<div class="cnote">${dup?(i===0&&a?.note?'שמאל: ':'ימין: '):''}${n}</div>`).join('');
+    const strip = dup
+      ? wall('כתף שמאל',a.cutL,a.cutL50)+op(a)+`<div class="wall pil${a.cutR||b.cutR?'':''}${a.cutR||b.cutL?' cut':''}"><span class="wn">עמוד</span><div class="pf"><div>${cell(a.cutR,a.cutR50)}</div><div>${cell(b.cutL,b.cutL50)}</div></div></div>`+op(b)+wall('כתף ימין',b.cutR,b.cutR50)
+      : wall('כתף שמאל',a.cutL,a.cutL50)+op(a)+wall('כתף ימין',a.cutR,a.cutR50);
+    return `<div class="crow ${dup?'dup':''}"><div class="cfl">${fl}</div>${strip}${notes}</div>`; }).join('');
+  return `<div class="cutv">${rows}</div>`;
+}
+function felesaOrder(R){
+  const {I,rows}=OREQ, o=R.main, prj=(OM.prj||'').replace(/[^\x20-\x7E]/g,'').toUpperCase();
+  const ctrl={big:`BIG CONTROLLER TOP FLOOR (${o.doorDir==='R'?'RIGHT':'LEFT'} SIDE), 3 M FROM SHAFT`,small:'SMALL CONTROLLER TOP FLOOR, NEXT TO SHAFT',frame:'FRAME CONTROLLER TOP FLOOR'}[o.ctrl.type];
+  const LR=f=>{ if(!R.duplex) return f(o); const x=f(R.lifts[0].o), y=f(R.lifts[1].o); return String(x)===String(y)?x:`LEFT ${x} / RIGHT ${y}`; };
+  const L=[
+    ['JOB', prj||'-'], ['LOAD (KG)', LR(l=>l.q)], ['PERSONS', LR(l=>l.persons)], ['STOPS', I.stops], ['FLOOR DESIGNATIONS', rows.map(r=>r.fl).join(', ')],
+    ['SHAFT WIDTH', R.duplex?`${R.W} (COMMON, DUPLEX)`:R.W], ['SHAFT DEPTH', R.D], ['ACCESS', 'NORMAL'],
+    ['CABINE DIMENSIONS', LR(l=>`${l.iw}*${l.id}`)], ['CABINE HEIGHT', 2300],
+    ['CLEAR OPENING', LR(l=>l.clear)], ['DOOR TYPE', {T2:'TELESCOPIC 2 PANELS',T3:'TELESCOPIC 3 PANELS',C:'CENTRAL OPENING'}[o.dt]],
+    ['OPENING', o.dt==='C'?'CENTRAL':(o.doorDir==='R'?'OPENS TO RIGHT':'OPENS TO LEFT')], ['LANDING DOORS', I.stops*(R.duplex?2:1)],
+    ['TRAVEL', OM.gen.travel||OM.plan.travel||'-'], ['HEADROOM (OH)', OM.gen.oh||OM.plan.oh||'-'], ['PIT', OM.gen.pit||OM.plan.pit||'-'],
+    ['DISTANCE BETWEEN FLOORS', rows.map(r=>r.hLift).filter(v=>v).join(', ')||'-'],
+    ['MACHINE / CWT SIDE', R.duplex?'OUTER WALLS (LEFT LIFT: LEFT, RIGHT LIFT: RIGHT)':(o.side==='L'?'LEFT':'RIGHT')],
+    ['OBSERVATIONS', [I.SL?`LEFT WALL ${I.SL} MM`:'NO LEFT WALL', I.SR?`RIGHT WALL ${I.SR} MM`:'NO RIGHT WALL', ctrl, 'FRAMES 140 MM, POSITION AS PER ATTACHED TOP VIEW'].join(', ')]];
+  return L;
+}
+function oShow(){
+  const out=$('oOut');
+  if(!OLIST.length){ if(R3){R3.dispose();R3=null;} out.innerHTML=`<div class="empty"><b>אין אפשרות שעומדת בכללים לפיר ${OREQ.I.W}×${OREQ.I.D}</b>נסה פתח אור קטן יותר, סוג פתיחה אחר או קבינה אחרת.</div>`; return; }
+  const R=OLIST[OSEL], o=R.main, I=OREQ.I, rep=cutReport(R), ord=felesaOrder(R);
+  const anyCut=rep.some(e=>e.cutL||e.cutR);
+  out.innerHTML=`
+  <article class="hero" style="${mcStyle(o)}">
+    <div class="bar"><div class="t"><span class="rank">שלב 2 · הבקשה לפלסה${OSEL?` · אפשרות ${OSEL+1}`:''}</span>
+      <h2><span class="num">${sizeTitle(R)}</span><small>מ"מ פנים</small></h2><div class="pills">${pills(o)}</div></div>
+      <div class="nav"><button type="button" class="icon-btn" id="oprev" aria-label="הקודמת" ${OSEL===0?'disabled':''}>${ICON.prev}</button><span class="cnt num">${OSEL+1} / ${OLIST.length}</span><button type="button" class="icon-btn" id="onext" aria-label="הבאה" ${OSEL>=OLIST.length-1?'disabled':''}>${ICON.next}</button></div></div>
+    <div class="kpis">
+      <div class="kpi"><span>פיר לבקשה (מינימום −20)</span><b><span class="num">${I.W}×${I.D}</span></b></div>
+      <div class="kpi"><span>כתפיים לבקשה (מקסימום)</span><b><span class="num">${I.SL} / ${I.SR}</span></b></div>
+      <div class="kpi"><span>עומס / נוסעים</span><b><span class="num">${o.q}</span><small>ק"ג · ${o.persons}</small></b></div>
+      <div class="kpi"><span>פתח אור</span><b><span class="num">${o.clear}</span><small>${dtName(o.dt)}</small></b></div>
+    </div>
+    <div class="export">
+      <button type="button" class="go" id="opdf">PDF לפלסה (מבט על + הזמנה)</button>
+      <button type="button" id="odbg">שמור קובץ לניתוח</button>
+      <span class="pdfst" id="pdfst" aria-live="polite"></span>
+    </div>
+    <div class="views">
+      <div class="v3d" id="v3dO"><span class="vtag">תלת-ממד</span><div class="cams"><button type="button" data-v="car">קבינה</button><button type="button" data-v="full">פיר מלא</button></div><div class="lbl">גרירה: סיבוב · Shift+גרירה: גובה · גלגלת: זום</div></div>
+      <div class="vplan"><span class="vtag">תוכנית · מבט על</span>${drawPlan(R)}</div>
+    </div>
+    <div class="body">
+      <div>
+        <p class="specs-t">דוח ניסורים לקבלן ${anyCut?'':'<span class="pill p-std">אין צורך בניסור</span>'}</p>
+        ${cutVisual(R,rep)}
+        <p class="hint">כפי שעומדים בלובי מול הפיר: שמאל בשמאל, ימין בימין${R.duplex?', העמוד באמצע':''}. "נסר" = כמה לנסר כדי שהמשקוף (140) ייכנס; השורה הקטנה = כמה לנסר כדי שיישאר גם מרווח 50 מ"מ.</p>
+        <div class="export" style="padding:10px 0 0"><button type="button" id="ocsv">הורד דוח ניסורים (Excel)</button></div>
+      </div>
+      <div class="side">
+        <p class="specs-t">הזמנה לפלסה — ELECTRIC ORDER FORM</p>
+        <div class="tbl"><table class="ord" dir="ltr">${ord.map(([k,v])=>`<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table></div>
+        <button type="button" id="ocopy">העתק את פרטי ההזמנה</button>
+        <ul class="notes">${[...(R.notes||[]),...R.lifts.flatMap(({o:l},i)=>l.notes.map(n=>({...n,t:(R.duplex?(i===0?'שמאל: ':'ימין: '):'')+n.t})))].map(n=>`<li class="${n.c}">${n.t}</li>`).join('')}</ul>
+      </div>
+    </div>
+  </article>`;
+  $('oprev').onclick=()=>{OSEL=Math.max(0,OSEL-1);oShow();}; $('onext').onclick=()=>{OSEL=Math.min(OLIST.length-1,OSEL+1);oShow();};
+  $('opdf').onclick=()=>exportPDF(R,OM.prj,ord);
+  $('odbg').onclick=()=>saveFile(`${oName()} - debug.json`, JSON.stringify(debugDump('order',OREQ.I,R,OM),null,1), $('pdfst'));
+  $('ocsv').onclick=()=>{ const h=['קומה',...(R.duplex?['מעלית']:[]),'ניסור שמאל','לקבלת 50 שמאל','ניסור ימין','לקבלת 50 ימין','הערה'];
+    const csv='﻿'+[h,...rep.map(e=>[e.fl,...(R.duplex?[e.lift]:[]),e.cutL,e.cutL50,e.cutR,e.cutR50,e.note])].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    saveFile(`${oName()} - cutting report.csv`, csv, $('pdfst')); };
+  $('ocopy').onclick=async()=>{ const t=ord.map(([k,v])=>`${k}: ${v}`).join('\n'); try{ await navigator.clipboard.writeText(t); $('ocopy').textContent='הועתק'; }catch{ $('ocopy').textContent='ההעתקה נחסמה — סמן את הטבלה והעתק'; } };
+  view3d(R,$('v3dO')); planZoom();
+}
+function oApply(s){ OM={...newOM(),...s,v:2}; if(!OM.id) OM.id=newOM().id; oSide(); oTable(); persist(); oRun(); }
+
+/* ---------- shared: file save + debug dump ---------- */
+async function saveFile(name,data,st){
+  const say=(m,c='')=>{ if(st){ st.textContent=m; st.className=(st.className.includes('pdfst')?'pdfst ':'hint ')+c; } };
+  const dl = window.claude?.use ? await window.claude.use('downloads') : null;
+  if(!dl && !window.claude){ browserSave(name,data); say('נשמר','ok'); return; }   // standalone HTML file
+  if(!dl){ say('שמירת קבצים זמינה רק בצפייה דרך claude.ai','warn'); return; }
+  try{ await dl.save({filename:name,data}); say('נשמר','ok'); }catch(e){ say(e?.code==='declined'?'השמירה בוטלה':'השמירה נכשלה','warn'); }
+}
+function debugDump(screen,I,R,form){
+  const pick=o=>({model:o.model,L:o.L,mode:o.mode,iw:o.iw,id:o.id,extW:o.extW,extD:o.extD,q:o.q,persons:o.persons,side:o.side,carL:o.carL,cy:o.cy,dbgCar:o.dbgCar,dbgCwt:o.dbgCwt,gapCwt:o.gapCwt,gapOth:o.gapOth,
+    clear:o.clear,dt:o.dt,doorDir:o.doorDir,o1:o.o1,jl:o.jl,jr:o.jr,legL:o.legL,legR:o.legR,shGapL:o.shGapL,shGapR:o.shGapR,panL:o.panL,panR:o.panR,ctrl:o.ctrl,cuts:o.cuts,notes:o.notes.map(n=>n.t),subI:o.I});
+  return {app:'shaft-calculator', version:APP_VERSION, saved:new Date().toISOString(), screen, form, input:I,
+    shown:{duplex:!!R?.duplex, W:R?.W, D:R?.D, beam:R?.beam, openings:R?.openings, lifts:(R?.lifts||[]).map(({o,x0})=>({x0,...pick(o)}))}};
+}
+
+/* ---------- import a measurement from any file (PDF / Word / Excel / image / text) -> Claude reads it ---------- */
+const LIBS={pdf:['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'],
+  docx:['https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'], xlsx:['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js']};
+const JS_LOADED={};
+const loadJs=u=>JS_LOADED[u]||(JS_LOADED[u]=new Promise((ok,no)=>{ const s=document.createElement('script'); s.src=u; s.onload=ok; s.onerror=()=>{ delete JS_LOADED[u]; no(new Error('טעינת רכיב הקריאה נכשלה')); }; document.head.appendChild(s); }));
+async function loadLib(k){ for(const u of LIBS[k]) await loadJs(u); }
+async function toJpeg(src,max=2000){ // src: Blob or canvas
+  let cv=src;
+  if(!(src instanceof HTMLCanvasElement)){ const img=await createImageBitmap(src); const s=Math.min(1,max/Math.max(img.width,img.height));
+    cv=document.createElement('canvas'); cv.width=Math.round(img.width*s); cv.height=Math.round(img.height*s); const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height); }
+  return new Promise(r=>cv.toBlob(r,'image/jpeg',0.85));
+}
+async function readAnyFile(f,maxImg){ // -> {text, images:[Blob]}
+  const ext=(f.name.split('.').pop()||'').toLowerCase(), out={text:'',images:[]};
+  if(f.type.startsWith('image/')||['jpg','jpeg','png','webp','gif','bmp','heic'].includes(ext)){ out.images.push(await toJpeg(f)); return out; }
+  if(ext==='pdf'){
+    await loadLib('pdf'); pdfjsLib.GlobalWorkerOptions.workerSrc=LIBS.pdf[0];
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+    for(let p=1;p<=Math.min(pdf.numPages,10);p++){ const pg=await pdf.getPage(p);
+      const tc=await pg.getTextContent(); out.text+=`\n--- page ${p} ---\n`+tc.items.map(i=>i.str+(i.hasEOL?'\n':' ')).join('');
+      if(out.images.length<maxImg){ const v0=pg.getViewport({scale:1}), sc=Math.min(3,2000/Math.max(v0.width,v0.height)), vp=pg.getViewport({scale:sc});
+        const cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height);
+        await pg.render({canvasContext:g,viewport:vp}).promise; out.images.push(await toJpeg(cv)); } }
+    return out;
+  }
+  if(ext==='docx'){
+    await loadLib('docx'); const {value}=await mammoth.convertToHtml({arrayBuffer:await f.arrayBuffer()});
+    const doc=new DOMParser().parseFromString(value,'text/html');
+    for(const img of [...doc.images].slice(0,maxImg)){ try{ out.images.push(await toJpeg(await (await fetch(img.src)).blob())); }catch{} }
+    doc.querySelectorAll('table').forEach(t=>t.replaceWith(doc.createTextNode('\n'+[...t.rows].map(r=>[...r.cells].map(c=>c.textContent.trim()).join(' | ')).join('\n')+'\n')));
+    doc.querySelectorAll('p,li,h1,h2,h3,h4,br').forEach(e=>e.append('\n'));
+    out.text=doc.body.textContent; return out;
+  }
+  if(['xlsx','xls','xlsm','ods','csv'].includes(ext)){
+    await loadLib('xlsx'); const wb=XLSX.read(await f.arrayBuffer());
+    out.text=wb.SheetNames.map(n=>`--- sheet ${n} ---\n`+XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n'); return out;
+  }
+  if(ext==='doc') throw new Error('קובץ Word ישן (.doc) — שמור אותו כ-PDF או כ-docx ונסה שוב');
+  out.text=await f.text(); return out;
+}
+const IMPORT_PROMPT=`You read a lift-shaft site measurement document of an Israeli lift company (usually Hebrew, often a scanned or photographed handwritten form) and return ONLY a JSON object.
+Measurement conventions (all values in millimetres, inside the shaft; left/right = standing in the lobby facing the shaft):
+A = shaft depth (עומק). B = shaft width (רוחב). C = right shoulder (כתף ימין: wall from the right shaft wall to the door opening). G = left shoulder (כתף שמאל).
+Duplex (two lifts in one shaft with a pillar/beam between them) also has: D = right wall to pillar (קיר ימין לעמוד), E = pillar width (עמוד), F = left wall to pillar (קיר שמאל לעמוד).
+hDoor = door opening height (גובה פתח). hLift = floor-to-floor height (גובה הרמה בין קומות). fin = flooring done (ריצוף): a tick -> "y", a cross -> "n", unknown -> "".
+TRAVEL, OH (headroom / גובה ראש), pit (בור). The row "בתוכנית" holds values from the architect's plan, not measured ones.
+If the document uses other words (width/depth/shoulder/כתף/מזוזה) map them to these letters. Values given in cm must be converted to mm (a shaft is typically 1300-2200 mm wide per lift; a shoulder 0-600 mm). A missing shoulder is "0" only if the form clearly says so, otherwise "".
+Return exactly this shape:
+{"prj":"","date":"YYYY-MM-DD or empty","measurer":"","mode":"single or duplex",
+ "plan":{"A":"","B":"","C":"","D":"","E":"","F":"","G":"","hDoor":"","hLift":"","travel":"","oh":"","pit":""},
+ "rows":[{"fl":"floor name as written","A":"","B":"","C":"","D":"","E":"","F":"","G":"","hDoor":"","hLift":"","fin":""}],
+ "gen":{"travel":"","oh":"","pit":""}, "dbgStd":"y, n or empty", "sea":"y, n or empty", "notes":"free-text notes written on the form, original language",
+ "doubts":["short Hebrew sentences about every value you were unsure of (illegible digit, ambiguous column, unit guess)"]}
+All numbers as strings of digits. One row per floor, lowest floor first. Never invent values: leave "" when a value is not in the document.`;
+async function importMeasurement(f,st){
+  const say=(t,c='')=>{ st.textContent=t; st.className='hint pdfst '+c; };
+  let sample=null; try{ sample=window.claude?.use? await window.claude.use('sample'):null; }catch{}
+  if(!sample) return say('קריאת טפסים מקובץ זמינה רק כשהדף פתוח דרך claude.ai','warn');
+  let lim=null; try{ lim=await sample.limits(); }catch{}
+  const maxImg=lim?.images?.maxCount||0;
+  try{
+    say(`קורא את ${f.name}…`);
+    const {text,images}=await readAnyFile(f,maxImg);
+    if(!text.trim()&&!images.length) return say('לא נמצא תוכן בקובץ','warn');
+    if(!text.trim()&&!maxImg) return say('הקובץ הוא תמונה או סריקה, ושליחת תמונות לא זמינה בתצוגה הזו','warn');
+    say(`מזהה את המדידות ב-${f.name}… (עד דקה)`);
+    const room=Math.max(4000,(lim?.maxPromptBytes||262144)-IMPORT_PROMPT.length*3-4000);
+    const body=`${IMPORT_PROMPT}\n\nFile name: ${f.name}\n${images.length?`${images.length} page image(s) attached — the main source when the extracted text is empty or garbled.\n`:''}Extracted text:\n${text.slice(0,Math.floor(room/3))||'(none)'}`;
+    const j=await sample.json(body,{images:images.length?images.slice(0,maxImg):undefined, modelTier:'complex'});
+    const s=v=>v==null?'':String(v).replace(/[^\d.]/g,'');
+    const rows=(j.rows||[]).map((r,i)=>({...blankRow(i),fl:String(r.fl??i),...Object.fromEntries(['A','B','C','D','E','F','G','hDoor','hLift'].map(k=>[k,s(r[k])])),fin:['y','n'].includes(r.fin)?r.fin:''}));
+    if(!rows.length) return say('לא זוהו מדידות בקובץ','warn');
+    const plan={...newOM().plan}; for(const k in plan) plan[k]=s(j.plan?.[k]);
+    const yn=v=>['y','n'].includes(v)?v:'';
+    OM={...newOM(),prj:j.prj||'',date:/^\d{4}-\d{2}-\d{2}$/.test(j.date||'')?j.date:OM.date,measurer:j.measurer||OM.measurer,mode:j.mode==='duplex'?'duplex':'single',
+      plan,rows,gen:{travel:s(j.gen?.travel),oh:s(j.gen?.oh),pit:s(j.gen?.pit)},checks:{dbgStd:yn(j.dbgStd)},sea:yn(j.sea),
+      notes:[j.notes||'',`[יובא מהקובץ ${f.name}]`].filter(Boolean).join('\n'),src:f.name,doubts:(j.doubts||[]).map(String)};
+    oApply(OM);
+    say(`יובא מ-${f.name} — בדוק את הערכים מול המקור`+(OM.doubts.length?` · ${OM.doubts.length} ספקות מסומנים בטופס`:''),'ok');
+  }catch(e){
+    const m={not_granted:'לא אושר שימוש ב-Claude בדף הזה',rate_limited:'יותר מדי בקשות — נסה שוב בעוד דקה',image_rejected:'הקובץ גדול מדי או בפורמט לא נתמך',invalid_json:'לא התקבלו מדידות קריאות — נסה שוב',refused:'הקובץ לא נקרא',sampling_disabled:'Claude לא זמין בחשבון הזה'}[e?.code];
+    say(m||('הייבוא נכשל: '+(e?.message||e?.code||e)),'warn');
+  }
+}
+
+/* ---------- render ---------- */
+const $=id=>document.getElementById(id);
+let LIST=[], SEL=0, DIAG=[], ALTS_OPEN=false;
+const numOrNull=id=>{ const v=$(id).value.trim(); return v===''?null:+v; };
+const STDK={std6:0,std8:1,std10:2,std13:3};
+function sideReq(p){ // duplex: requested size of one lift
+  const k=$(p+'K').value; if(k==='same') return 'same';
+  if(k in STDK){ const s=STD[STDK[k]]; return {ps:null,cw:s.w,cd:s.d}; }
+  if(k==='ps') return {ps:+$(p+'PS').value||null,cw:null,cd:null};
+  if(k==='size') return {ps:null,cw:numOrNull(p+'CW'),cd:numOrNull(p+'CD')};
+  return {ps:null,cw:null,cd:null};
+}
+function read(){
+  const v=id=>+$(id).value||0;
+  const r=n=>document.querySelector(`input[name=${n}]:checked`).value;
+  return {W:v('W'),D:v('D'),SL:v('SL'),SR:v('SR'),stops:numOrNull('ST')||P.stops, dt:r('dt'), dir:$('DIR').value, en:r('en'), ct:$('CT').value,
+    sm:r('sm'), openL:v('OL'), pillar:v('PIL'), beam:v('BM')||100,
+    s90:$('S90').value, RL:numOrNull('RL'), RR:numOrNull('RR'), SF:numOrNull('SF'), SB:numOrNull('SB'),
+    clear:+$('CL').value||null, ex:true, mx:r('mx'), ps:+$('PS').value||null, cw:numOrNull('CW'), cd:numOrNull('CD'), sides:{L:sideReq('L'),R:sideReq('R')}};
+}
+function setVals(I){
+  const set=(k,txt,on)=>{ const e=document.querySelector(`.val[data-for="${k}"]`); e.textContent=txt; e.classList.toggle('set',on); };
+  set('st', `${I.stops}`, numOrNull('ST')!=null);
+  set('dt', `${dtName(I.dt)}${I.dt!=='C'?', '+(I.dir==='auto'?'כיוון אוטומטי':dirName(I.dir)):''}`, I.dt!=='T2'||I.dir!=='auto');
+  set('en', I.sm==='duplex'?'אחת (דופלקס)':I.en==='1'?'אחת':I.en==='180'?'מעבר 180°':`90° בקיר ${sideName(I.s90)}`, I.en!=='1');
+  set('ps', I.ps?`${I.ps}`:'מקסימום', !!I.ps);
+  set('mx', I.mx==='abs'?'גבול מוחלט':'אידיאלי', I.mx==='abs');
+  set('cs', I.cw||I.cd?`${I.cw??'מקס'}×${I.cd??'מקס'}`:'מקסימלי', !!(I.cw||I.cd));
+  const dup=I.sm==='duplex'; $('dupwrap').hidden=!dup; $('o-en').hidden=dup; $('o-ps').hidden=dup; $('o-cs').hidden=dup;
+  for(const p of ['L','R']){ const k=$(p+'K').value; $(p+'PS').hidden=k!=='ps'; $(p+'SZ').hidden=k!=='size'; }
+  $('W').previousSibling.textContent = dup?'רוחב פיר משותף':'רוחב פיר';
+  if(dup) $('OR').value = I.W-I.SL-I.openL-I.pillar-I.SR;
+  $('rearwrap').hidden = I.en!=='180'; $('sidewrap').hidden = I.en!=='90'; $('dirwrap').hidden = I.dt==='C';
+}
+function similar(o){
+  return PROJECTS.filter(p=>p.L===o.L && p.W && p.D)
+    .map(p=>({p,d:Math.abs(p.W-o.I.W)+Math.abs(p.D-o.I.D)}))
+    .sort((a,b)=>a.d-b.d).slice(0,3).map(({p})=>p);
+}
+const mcStyle=o=>`--mc:var(${MODELS[modelKey(o)].v})`;
+function pills(o){
+  const p=[`<span class="pill pm" style="${mcStyle(o)}">${MODELS[modelKey(o)].n}</span>`];
+  if(o.isStd) p.push(`<span class="pill p-std">${o.stdName}</span>`);
+  if(o.mode==='x') p.push(`<span class="pill p-warn">מתחת למרווח האידיאלי</span>`);
+  if(o.cuts.length||o.ctrl.cut) p.push(`<span class="pill p-cut">דורש ניסור</span>`);
+  if(o.acc) p.push(`<span class="pill p-mut">${o.acc}</span>`);
+  return p.join('');
+}
+function render(){
+  const I=read(), out=$('out');
+  setVals(I);
+  if(I.W<1000||I.D<1000){ out.innerHTML='<div class="empty">הזן רוחב ועומק פיר (מ"מ).</div>'; if(R3){R3.dispose();R3=null;} return; }
+  if(I.sm==='duplex'){
+    const orr=I.W-I.SL-I.openL-I.pillar-I.SR;
+    if(I.openL<600||orr<600){ out.innerHTML='<div class="empty">בדופלקס: הזן כתפיים, פתח שמאל ועמוד כך ששני הפתחים יהיו לפחות 600 מ"מ.</div>'; if(R3){R3.dispose();R3=null;} return; }
+    LIST=solveDuplex(I); DIAG=[]; SEL=0; show(); return;
+  }
+  if(I.SL+I.SR>=I.W){ out.innerHTML='<div class="empty">סכום הכתפיים גדול מרוחב הפיר. בדוק את המידות.</div>'; if(R3){R3.dispose();R3=null;} return; }
+  const r=solve(I); LIST=r.list.map(singleR); DIAG=r.diag; SEL=0;
+  show();
+}
+function noResult(I){
+  const tips=[];
+  if(I.cw||I.cd){ const nf=DIAG.filter(d=>d.L==='NF'&&d.mode==='n'); if(nf.length){ const b=nf.reduce((a,c)=>(Math.max(c.dw,0)+Math.max(c.dd,0))<(Math.max(a.dw,0)+Math.max(a.dd,0))?c:a);
+      tips.push(`התא המבוקש לא נכנס בנורמל פריים: חסרים ${[b.dw>0?b.dw+' מ"מ ברוחב':'',b.dd>0?b.dd+' מ"מ בעומק':''].filter(Boolean).join(' ו-')}.`); } }
+  if(I.ps) tips.push(`אין אפשרות ל-${I.ps} נוסעים בדיוק. נסה מספר נוסעים אחר או "מקסימום אפשרי".`);
+  tips.push('אפשר גם: פתח אור קטן יותר, סוג פתיחה אחר, או לאפשר מרווחי חריגה.');
+  return `<div class="empty"><b>אין אפשרות שעומדת בכללים</b>${tips.join('<br>')}</div>`;
+}
+const ICON={prev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+            next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>'};
+function specs(o){
+  return `<dl>
+    <div><dt>קבינה פנים</dt><dd>${o.iw}×${o.id}</dd></div>
+    <div><dt>עומס / נוסעים</dt><dd>${o.q} / ${o.persons}</dd></div>
+    <div><dt>מזוזות שמאל / ימין</dt><dd>${o.panL} / ${o.panR}</dd></div>
+    <div><dt>DBG קבינה</dt><dd>${o.dbgCar}</dd></div>
+    <div><dt>DBG משקולת</dt><dd>${o.dbgCwt}</dd></div>
+    <div><dt>${o.L==='NF'?'מרווח משקולת / פס בודד':'מסילות+משקולת / צד פנוי'}</dt><dd>${o.gapCwt} / ${o.gapOth}</dd></div>
+    <div><dt>משקולת בצד</dt><dd class="txt">${sideName(o.side)}</dd></div>
+    <div><dt>כיוון פתיחה</dt><dd class="txt">${dirName(o.doorDir)}</dd></div>
+    <div><dt>משקוף שמאל / ימין</dt><dd>${o.legL} / ${o.legR}</dd></div>
+    <div><dt>מרווח משקוף-כתף</dt><dd style="color:${Math.min(o.shGapL,o.shGapR)<P.shGap?'var(--warn)':'var(--ok)'}">${o.shGapL} / ${o.shGapR}</dd></div>
+    ${o.rear?`<div><dt>משקוף אחורי</dt><dd>${o.rear.jl} / ${o.rear.jr}</dd></div>`:''}
+    <div><dt>לוח פיקוד</dt><dd class="txt">${CTRL[o.ctrl.type]}</dd></div>
+  </dl>`;
+}
+let PROJ='';
+function show(){
+  const out=$('out'), I=read(), dup=I.sm==='duplex';
+  const head=`<div class="summary"><span>${dup?'פיר משותף':'פיר'} <b class="num">${I.W}×${I.D}</b></span>${dup?`<span>פתחים <b class="num">${I.openL} | ${I.W-I.SL-I.openL-I.pillar-I.SR}</b></span>`:`<span>פתח בין כתפיים <b class="num">${I.W-I.SL-I.SR}</b></span>`}<span><b>${I.stops}</b> תחנות</span><span>${dtName(I.dt)}</span></div>`;
+  if(!LIST.length){ if(R3){R3.dispose();R3=null;} out.innerHTML=head+noResult(I); return; }
+  const R=LIST[SEL], o=R.main;
+  const sim=similar(o).map(p=>`<b>${p.n}</b> <span class="num">${p.W}×${p.D} → ${p.iw}×${p.id}</span>`).join(' · ');
+  const used=[...new Set(LIST.map(x=>modelKey(x.main)))];
+  const notes=[...(R.notes||[]), ...R.lifts.flatMap(({o:l},i)=>l.notes.map(n=>({...n,t:(R.duplex?(i===0?'שמאל: ':'ימין: '):'')+n.t})))];
+  out.innerHTML = head + `
+  <article class="hero" style="${mcStyle(o)}">
+    <div class="bar">
+      <div class="t">
+        <span class="rank">${SEL===0?'האפשרות המומלצת':`אפשרות ${SEL+1}`}${R.duplex?' · דופלקס':''}</span>
+        <h2><span class="num">${sizeTitle(R)}</span><small>מ"מ פנים</small></h2>
+        <div class="pills">${pills(o)}</div>
+      </div>
+      <div class="nav"><button type="button" class="icon-btn" id="prev" aria-label="הקודמת" ${SEL===0?'disabled':''}>${ICON.prev}</button><span class="cnt num">${SEL+1} / ${LIST.length}</span><button type="button" class="icon-btn" id="next" aria-label="הבאה" ${SEL>=LIST.length-1?'disabled':''}>${ICON.next}</button></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span>עומס</span><b><span class="num">${o.q}</span><small>ק"ג</small></b></div>
+      <div class="kpi"><span>נוסעים</span><b>${o.persons}</b></div>
+      <div class="kpi"><span>פתח אור</span><b><span class="num">${o.clear}</span><small>${dtName(o.dt)}</small></b></div>
+      <div class="kpi"><span>מרווח משקוף-כתף</span><b><span class="num">${Math.min(...R.lifts.map(l=>Math.min(l.o.shGapL,l.o.shGapR)))}</span><small>מינימום</small></b></div>
+    </div>
+    <div class="export">
+      <input id="PRJ" type="text" placeholder="שם פרויקט באנגלית (לקובץ)" value="${PROJ.replace(/"/g,'&quot;')}" aria-label="שם פרויקט">
+      <button type="button" class="go" id="pdf">PDF מבט על לפלסה</button>
+      <button type="button" id="dbg">שמור קובץ לניתוח</button>
+      <span class="pdfst" id="pdfst" aria-live="polite">באנגלית, עם הכתפיים כפי שנמדדו ומיקום מדויק של המשקוף והקבינה</span>
+    </div>
+    <div class="views">
+      <div class="v3d" id="v3d"><span class="vtag">תלת-ממד</span><div class="cams"><button type="button" data-v="car">קבינה</button><button type="button" data-v="full">פיר מלא</button></div><div class="lbl">גרירה: סיבוב · Shift+גרירה: גובה · גלגלת: זום</div></div>
+      <div class="vplan"><span class="vtag">תוכנית · מבט על</span>${drawPlan(R)}</div>
+    </div>
+    <div class="body">
+      <div>
+        ${R.duplex?`<div class="lifts2">${R.lifts.map(({o:l},i)=>`<div><p class="specs-t">${i===0?'מעלית שמאל':'מעלית ימין'}</p>${specs(l)}</div>`).join('')}</div>`:`<p class="specs-t">מפרט</p>${specs(o)}`}
+      </div>
+      <div class="side">
+        ${notes.length?`<ul class="notes">${notes.map(n=>`<li class="${n.c}">${n.t}</li>`).join('')}</ul>`:''}
+        <a class="cfg" href="https://www.felesa.com/configurador-cabinas/" target="_blank" rel="noopener">עיצוב הקבינה במקנפג של Felesa<span>←</span></a>
+        <div class="refs">פרויקטים דומים: ${sim||'—'}</div>
+      </div>
+    </div>
+  </article>
+  ${LIST.length>1?`<details class="alts" id="altsd" ${ALTS_OPEN?'open':''}><summary class="alts-h"><h3>${ALTS_OPEN?'הסתר':'הצג'} ${LIST.length-1} אפשרויות נוספות</h3>
+    <div class="legend">${used.map(k=>`<span style="--mc:var(${MODELS[k].v})"><i></i>${MODELS[k].n}</span>`).join('')}</div></summary>
+    <div class="agrid">${LIST.map((x,i)=>{ const a=x.main; return `<button type="button" class="alt${i===SEL?' on':''}" style="${mcStyle(a)}" data-i="${i}"><span class="top"><span class="sz num">${sizeTitle(x)}</span><span class="i">#${i+1}</span></span><span class="meta">${a.q} ק"ג · ${a.persons} נוסעים · פתח ${a.clear}</span><span class="pills">${pills(a)}</span></button>`; }).join('')}</div></details>`:''}`;
+  $('altsd')?.addEventListener('toggle',e=>{ ALTS_OPEN=e.target.open; e.target.querySelector('h3').textContent=`${ALTS_OPEN?'הסתר':'הצג'} ${LIST.length-1} אפשרויות נוספות`; });
+  $('prev')?.addEventListener('click',()=>{SEL=Math.max(0,SEL-1);show();});
+  $('next')?.addEventListener('click',()=>{SEL=Math.min(LIST.length-1,SEL+1);show();});
+  out.querySelectorAll('.alt').forEach(b=>b.addEventListener('click',()=>{SEL=+b.dataset.i;show();$('out').scrollIntoView({block:'start'});}));
+  $('PRJ').addEventListener('input',e=>{ PROJ=e.target.value; e.stopPropagation(); });
+  $('pdf').addEventListener('click',()=>exportPDF(R,PROJ));
+  $('dbg').addEventListener('click',()=>saveFile(`${(PROJ||'shaft').replace(/[^\w\- ]+/g,'').trim()||'shaft'} - debug.json`, JSON.stringify(debugDump('free',I,R,{...I}),null,1), $('pdfst')));
+  view3d(R,$('v3d')); planZoom();
+}
+
+function rulesHtml(){
+  const s=P.NF.small;
+  return [
+    `העדפה: נורמל פריים לפני רוגזק; בלי ניסור; הקבינה הגדולה ביותר. אם הוזן גודל תא או מספר נוסעים — נותנים בדיוק את זה.`,
+    `נורמל פריים: אידיאל — מרווח משקולת ${s.cwt}, פס בודד ${s.oth}. מתחת לזה מותר עם התראה. גבול מוחלט: ${s.cwtX} / ${s.othX}. GRL4: משקולת ≥ ${P.NF.big.cwt}, צד שני ≥ ${P.NF.big.oth}, DBG משקולת 1400.`,
+    `DBG קבינה = רוחב קבינה חוץ + ${2*s.rail}. קבינה חוץ = פנים + ${P.extW} ברוחב, + ${P.extD} בעומק.`,
+    `עומק: חזית ${P.front} סטנדרט, מתחת לזה רק כשהכתפיים מאפשרות להוציא את המשקופים מהפיר, ועד ${P.frontOut} לכל היותר (פתח בין הכתפיים ≥ משקוף + 2×${P.shGap}). גב ${P.back}. מעבר 180°: ${P.front180} מכל צד. עומק פיר ≥ DBG משקולת + ${P.NF.cwtDepthReserve}.`,
+    `רוגזק: אזור מסילות ומשקולת ${P.RS.side} בצד אחד, צד פנוי ≥ ${P.RS.oth}. 90°: רוגזק בלבד (אין נורמל פריים 90°), המסילות בקיר שמול הכניסה השנייה.`,
+    `דלת טלסקופית: הפתח צמוד לדופן הקבינה (${P.flush[0]}–${P.flush[1]} מ"מ) בצד שאליו היא לא נפתחת. רוחב קבינה חוץ ≥ פתח + ${P.carDoor.T2} (T2), + ${P.carDoor.T3} (T3), + ${P.carDoor.C} (מרכזית).`,
+    `משקוף: ${P.jamb} סטנדרט, מינימום ${P.jambMin}. מרווח רצוי בין המשקוף לכתף: ${P.shGap} מכל צד (התראה אם פחות). פיקוד במשקוף: ${P.jambCtrl} בקומה העליונה.`,
+    `הדמיה: גובה קומה ${P.floorH}, בור ${P.pit}, ראש פיר ${P.head} מהקומה העליונה לתקרה.`,
+    `עומס ונוסעים לפי EN 81-20 טבלאות 6 ו-8. נגישות לפי EN 81-70.`,
+  ].map(t=>`<div>• ${t}</div>`).join('');
+}
+function tableHtml(){
+  const h='<tr><th>פרויקט</th><th>סוג</th><th>פיר</th><th>קבינה</th><th>ק"ג</th><th>DBG</th><th>מרווחים</th><th>פתח</th><th>כתפיים</th><th>תחנות</th></tr>';
+  return h+PROJECTS.map(p=>`<tr><td>${p.n}</td><td>${p.L==='NF'?'נורמל':'רוגזק'}${p.e!=='1'?' '+p.e+'°':''}</td><td class="num">${p.W}×${p.D}</td><td class="num">${p.iw??''}×${p.id??''}</td><td class="num">${p.q??''}</td><td class="num">${p.dc}/${p.dw??''}</td><td class="num">${p.gc}/${p.go}</td><td class="num">${p.o}${p.dt==='C'?' C':''}</td><td class="num">${p.sl}/${p.sr}</td><td class="num">${p.s??''}</td></tr>`).join('');
+}
+for(let p=4;p<=21;p++) for(const id of ['PS','LPS','RPS']) $(id).insertAdjacentHTML('beforeend',`<option value="${p}"${id!=='PS'&&p===8?' selected':''}>${p} נוסעים</option>`);
+$('nproj').textContent=PROJECTS.length; $('nproj2').textContent=PROJECTS.length;
+$('rules').innerHTML=rulesHtml(); $('ptable').innerHTML=tableHtml();
+$('f').addEventListener('input',render); $('f').addEventListener('submit',e=>e.preventDefault());
+function tab(which){
+  const tech=which==='tech', ord=which==='order';
+  $('scrOrder').hidden=!ord; $('scrFree').hidden=which!=='free'; $('scrTech').hidden=!tech; document.body.classList.toggle('techmode',tech);
+  $('tabOrder').setAttribute('aria-selected',ord||tech); $('tabFree').setAttribute('aria-selected',which==='free');
+  if(R3){R3.dispose();R3=null;}
+  if(tech){ renderTech(); scrollTo(0,0); } else if(ord){ oSide(); oTable(); oRun(); } else render();
+  try{ if(!tech) localStorage.setItem('tab',which); }catch{} }
+$('tabOrder').onclick=()=>tab('order'); $('tabFree').onclick=()=>tab('free');
+oInit(); let t0='order'; try{ t0=localStorage.getItem('tab')||'order'; }catch{} if(location.hash==='#measure') t0='tech'; tab(t0);
+</script>
+<script>if(!PROJECTS.length){document.querySelector('.chip-db')?.remove();const t=document.getElementById('ptable');if(t)t.closest('details')?.remove();}</script>
+</body></html>
