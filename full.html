@@ -444,6 +444,11 @@ details.tcard[open]>summary{margin-bottom:6px}
 .cv{color:var(--coral)} .okv{color:var(--accent)}
 .cnote{grid-column:2/-1;direction:rtl;font-size:12px;color:var(--ink-2)}
 #oDupCab .dupsides{margin-top:4px}
+
+/* v15: computed duplex field, 3-way seg */
+input.calc{background:var(--surface-2);color:var(--muted)}
+.cmark{color:var(--muted);font-size:11px}
+.seg3{grid-template-columns:repeat(3,minmax(0,1fr))}
 </style>
 
 <div class="topbar" dir="rtl"><div class="in">
@@ -481,6 +486,10 @@ details.tcard[open]>summary{margin-bottom:6px}
   <div class="row2">
     <label>פתח אור<select id="oCL"><option value="">מקסימלי</option><option>700</option><option>750</option><option>800</option><option>900</option><option>1000</option><option>1100</option></select></label>
     <label>ארון פיקוד<select id="oCT"><option value="big">ארון גדול</option><option value="small">ארון קטן</option><option value="frame">במשקוף</option></select></label>
+  </div>
+  <div class="row2">
+    <label>מיקום משקופים<select id="oFP"><option value="std">סטנדרטי (סף בפיר)</option><option value="out">מחוץ לפיר</option><option value="in">בתוך הפיר</option></select></label>
+    <label>מרווח קבינה–שאסי<select id="oCG"><option value="std">סטנדרטי 40–45</option><option value="min">מצומצם 25</option></select></label>
   </div>
 <div id="oSingleCab">
   <p class="sec-t">קבינה <span class="hint">ריק = מקסימום</span></p>
@@ -561,12 +570,12 @@ details.tcard[open]>summary{margin-bottom:6px}
     </div>
     <div id="dupwrap" hidden>
       <div class="row2">
-        <label>פתח שמאל<input id="OL" type="number" inputmode="numeric" value="1600" step="5"></label>
-        <label>עמוד בין הפתחים<input id="PIL" type="number" inputmode="numeric" value="400" step="5"></label>
+        <label>פתח שמאל <span class="cmark" hidden>(מחושב)</span><input id="OL" type="number" inputmode="numeric" value="1600" step="5"></label>
+        <label>עמוד בין הפתחים <span class="cmark" hidden>(מחושב)</span><input id="PIL" type="number" inputmode="numeric" value="400" step="5"></label>
       </div>
       <div class="row2">
         <label>קורה מפרידה<input id="BM" type="number" inputmode="numeric" value="100" step="5"></label>
-        <label>פתח ימין (מחושב)<input id="OR" type="text" readonly tabindex="-1"></label>
+        <label>פתח ימין <span class="cmark">(מחושב)</span><input id="OR" type="number" inputmode="numeric" step="5"></label>
       </div>
       <div class="dupsides">
       <div class="dside"><p class="specs-t">מעלית שמאל</p>
@@ -643,7 +652,22 @@ details.tcard[open]>summary{margin-bottom:6px}
         <label><input type="radio" name="mx" id="mxI" value="ideal" checked>מרווחים אידיאליים</label>
         <label><input type="radio" name="mx" id="mxA" value="abs">גבול מוחלט</label>
       </div>
-      <p class="hint">אידיאלי: 310/140, חזית 250. מוחלט: 280/110, חזית 180 (רק אם המשקופים יוצאים מהפיר).</p>
+      <p class="hint">אידיאלי: מרווח משקולת 310, פס בודד 140. מוחלט: 280 / 110.</p>
+    </div></details>
+    <details class="opt" id="o-fp"><summary>מיקום משקופים <span class="val" data-for="fp"></span></summary><div>
+      <div class="seg seg3" role="radiogroup" aria-label="מיקום משקופים">
+        <label><input type="radio" name="fp" value="std" checked>סטנדרטי</label>
+        <label><input type="radio" name="fp" value="out">מחוץ לפיר</label>
+        <label><input type="radio" name="fp" value="in">בתוך הפיר</label>
+      </div>
+      <p class="hint">סטנדרטי: הסף בתוך הפיר והמשקוף על הפודסט — חזית 250. מחוץ לפיר: הדלת והמשקוף על הפודסט — חזית 180. בתוך הפיר: כל הדלת בפיר — חזית 290.</p>
+    </div></details>
+    <details class="opt" id="o-cg"><summary>מרווח קבינה–שאסי <span class="val" data-for="cg"></span></summary><div>
+      <div class="seg" role="radiogroup" aria-label="מרווח קבינה–שאסי">
+        <label><input type="radio" name="cg" value="std" checked>סטנדרטי 40–45</label>
+        <label><input type="radio" name="cg" value="min">מצומצם 25</label>
+      </div>
+      <p class="hint">DBG קבינה = רוחב פנים + דופן 30 + מרווח לשאסי, בכל צד. מצומצם מרוויח עד 40 מ"מ ברוחב הקבינה.</p>
     </div></details>
     <details class="opt" id="o-cs"><summary>גודל תא רצוי <span class="val" data-for="cs"></span></summary><div>
       <div class="row2">
@@ -673,7 +697,7 @@ details.tcard[open]>summary{margin-bottom:6px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const PROJECTS = /*DATA*/[];
-const APP_VERSION = 'v14';
+const APP_VERSION = 'v15';
 
 /* ---------- parameters (derived from the drawings; edit here) ---------- */
 const P = {
@@ -686,6 +710,9 @@ const P = {
   },
   RS: { side: 380, oth: 60, othX: 35 }, // rucksack: car+cwt rails on one wall
   front: 250, frontX: 250, frontOut: 180, back: 50, backX: 40, // front 250 normal; below only when the frames can go out of the shaft (shoulders allow); 180 absolute
+  framePos: {std: 250, out: 180, in: 290},   // front gap by landing-frame position: std = sill in shaft, frame on landing; out = door+frame on the landing; in = whole door inside the shaft
+  doorZone: {carDoor: 150, landDoor: 90},    // from the car front: 30+30 + car door 90 = 150, then landing door 90 (Felesa drawings)
+  railMin: 25,                               // reduced car-to-chassis gap (std 45 / 40) — car walls are 30 each side
   shGap: 50,                           // ideal clear gap between landing frame and shoulder, each side
   front180: 240, side90: 240,
   jamb: 140, jambMin: 140, jambCtrl: 180, // landing door frame (jamb); frame controller needs 180
@@ -776,7 +803,8 @@ function canPushOut(I){ // landing frame fits between the shoulders with the 50 
   const frameW=(I.clear||800)+2*P.jamb;
   return I.W-I.SL-I.SR >= frameW+2*P.shGap;
 }
-function frontMin(I,x){ return I.en==='180'? P.front180 : !x? P.front : canPushOut(I)? P.frontOut : P.frontX; }
+function frontMin(I,x){ return I.en==='180'? P.front180 : (P.framePos[I.fp] ?? P.framePos.std); }   // frame position is its own choice, independent of the clearance mode
+const railOf=(I,k)=> I.cg==='min'? Math.min(P.railMin,k.rail) : k.rail;                            // car exterior to car-rail DBG, each side
 function carEnvelope(I,L,mode,q){
   const x = mode==='x';
   const front = frontMin(I,x);
@@ -788,7 +816,7 @@ function carEnvelope(I,L,mode,q){
     iw = fl10(I.W - P.RS.side - oth - P.extW);
   } else {
     const c=clr('NF',q);
-    iw = fl10(I.W - (x?c.cwtX:c.cwt) - (x?c.othX:c.oth) - 2*(x?c.railX:c.rail) - P.extW);
+    iw = fl10(I.W - (x?c.cwtX:c.cwt) - (x?c.othX:c.oth) - 2*railOf(I,c) - P.extW);
   }
   if(iw<600||id<800) return null;
   return {iw,id};
@@ -829,7 +857,7 @@ function build(I,L,side,mode,c){
   const wantC = I.SL + (I.W-I.SL-I.SR)/2;
   if(L==='NF'){
     const k=clr('NF',q);
-    const rail = Math.min(k.rail, Math.max(x?k.railX:k.rail, Math.floor((I.W-extW-(x?k.cwtX:k.cwt)-(x?k.othX:k.oth))/2)));
+    const rail = railOf(I,k);
     dbgCar = c.kind==='std' ? Math.max(c.std.dc, extW+2*rail) : extW + 2*rail;
     if(c.kind==='std' && dbgCar + (x?k.cwtX:k.cwt) + (x?k.othX:k.oth) > I.W) dbgCar = extW+2*rail;
     if(rail<k.rail) notes.push({t:`מרחק קבינה-מסילה ${rail} (סטנדרט ${k.rail})`,c:'warn'});
@@ -858,7 +886,9 @@ function build(I,L,side,mode,c){
     notes.push({t:'רוגזק — אפשרות משנית.',c:''});
     if(q>630) notes.push({t:'רוגזק מעל 630 ק"ג (GRL2) — פרויקט אחד בלבד במאגר, לאמת מול Felesa',c:'warn'});
   }
-  if(front<P.front) notes.push({t:`מרווח חזית ${front} — מתחת ל-${P.front}: המשקופים יוצאים מחוץ לפיר (הכתפיים מאפשרות)`,c:'warn'});
+  if(I.en!=='180' && I.fp==='out') notes.push({t:`משקופים מחוץ לפיר (על הפודסט) — מרווח חזית ${front}`+(canPushOut(I)?'':' — הפתח בין הכתפיים צר: לבדוק שהדלת והמשקוף נכנסים'),c:canPushOut(I)?'':'warn'});
+  if(I.en!=='180' && I.fp==='in') notes.push({t:`משקופים בתוך הפיר — מרווח חזית ${front}`,c:''});
+  if(L==='NF' && I.cg==='min') notes.push({t:`מרווח קבינה–שאסי מצומצם ${railOf(I,clr('NF',q))} בכל צד (סטנדרט ${clr('NF',q).rail})`,c:'warn'});
   const cy = I.D-front-extD;
 
   // ---- front landing door: try every car position (10 mm steps) and keep the best door
@@ -963,6 +993,42 @@ function browserSave(name,data){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
 }
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 /* ---------- result model: one or two lifts in one shaft ---------- */
 // R = {W, D, I, lifts:[{o, x0}], openings:[{a,b,cutA,cutB}], beam:{x,w}|null, duplex:bool}
 function singleR(o){
@@ -1047,8 +1113,8 @@ function solveDuplexSame(I){
 
 /* ---------- plan drawing (SVG, mm units) — bbox-fitted, collision-avoiding labels, he/en ---------- */
 const PL_TXT={
-  he:{cwt:'מרווח משקולת',single:'פס בודד',rsSide:'מסילות+משקולת',rsFree:'צד פנוי',dbg:'DBG קבינה',shaftW:'רוחב פיר',shaftD:'עומק פיר',shL:'כתף',shR:'כתף',gap:'מרווח',frame:'משקוף',clear:'פתח אור',panel:'מזוזה',back:'גב',front:'חזית',carInt:'קבינה פנים',pillar:'עמוד',beam:'קורה',carPos:'מיקום הקבינה בפיר',wallToCar:'קיר-קבינה',car:'קבינה',view:'מבט על · הלובי למטה',ctrlF:'פיקוד במשקוף (קומה עליונה)',ctrlB:'ארון פיקוד',ctrlS:'ארון קטן',dbgCwt:'DBG משקולת',kg:'ק"ג',pers:'נוסעים',now:'היום'},
-  en:{cwt:'CWT gap',single:'Rail side',rsSide:'Rails+CWT',rsFree:'Free side',dbg:'Car DBG',shaftW:'Shaft width',shaftD:'Shaft depth',shL:'Shoulder',shR:'Shoulder',gap:'Gap',frame:'Frame',clear:'Clear opening',panel:'Panel',back:'Back',front:'Front',carInt:'Car (int.)',pillar:'Pillar',beam:'Beam',carPos:'Car position in shaft',wallToCar:'Wall-car',car:'Car',view:'TOP VIEW — landing side at bottom',ctrlF:'Frame controller (top floor)',ctrlB:'Controller cabinet',ctrlS:'Small controller',dbgCwt:'CWT DBG',kg:'kg',pers:'pers.',now:'now'}};
+  he:{cwt:'מרווח משקולת',single:'פס בודד',rsSide:'מסילות+משקולת',rsFree:'צד פנוי',dbg:'DBG קבינה',shaftW:'רוחב פיר',shaftD:'עומק פיר',shL:'כתף',shR:'כתף',gap:'מרווח',frame:'משקוף',clear:'פתח אור',panel:'מזוזה',back:'גב',front:'חזית',carInt:'קבינה פנים',pillar:'עמוד',beam:'קורה',carPos:'מיקום הקבינה בפיר',wallToCar:'קיר-קבינה',car:'קבינה',view:'מבט על · הלובי למטה',ctrlF:'פיקוד במשקוף (קומה עליונה)',ctrlB:'ארון פיקוד',ctrlS:'ארון קטן',dbgCwt:'DBG משקולת',kg:'ק"ג',pers:'נוסעים',now:'היום',carDoor:'דלת קבינה',landDoor:'דלת קומה בפיר',podest:'על הפודסט',toWall:'מרווח',chassis:'לשאסי',carWall:'דופן',inner:'פנים',landing:'פודסט'},
+  en:{cwt:'CWT gap',single:'Rail side',rsSide:'Rails+CWT',rsFree:'Free side',dbg:'Car DBG',shaftW:'Shaft width',shaftD:'Shaft depth',shL:'Shoulder',shR:'Shoulder',gap:'Gap',frame:'Frame',clear:'Clear opening',panel:'Panel',back:'Back',front:'Front',carInt:'Car (int.)',pillar:'Pillar',beam:'Beam',carPos:'Car position in shaft',wallToCar:'Wall-car',car:'Car',view:'TOP VIEW — landing side at bottom',ctrlF:'Frame controller (top floor)',ctrlB:'Controller cabinet',ctrlS:'Small controller',dbgCwt:'CWT DBG',kg:'kg',pers:'pers.',now:'now',carDoor:'Car door',landDoor:'Landing door in shaft',podest:'On landing',toWall:'Gap',chassis:'Chassis',carWall:'Wall',inner:'Inside',landing:'Landing'}};
 const PL_COL={ink:'#0d1420',ink2:'#2b3646',muted:'#5a6577',line:'#d3dae4',wall:'#c9d1db',hatch:'#9aa6b4',car:'#eef3ff',cwt:'#4a5566',accent:'#3554d1',ok:'#13865c',okSoft:'#e3f6ee',warn:'#b26b00',warnSoft:'#fff5dc',cut:'#d9480f',cutSoft:'#fff0e6',bg:'#ffffff'};
 function drawPlan(R, opt={}){
   const lang=opt.lang||'he', T=PL_TXT[lang], pr=!!opt.print;
@@ -1089,16 +1155,24 @@ function drawPlan(R, opt={}){
   s.push(`<rect x="0" y="0" width="${W}" height="${D}" fill="none" stroke="${C('ink')}" stroke-width="6"/>`);
   if(R.beam){ rect(R.beam.x,0,R.beam.w,D,'none',`stroke="${C('muted')}" stroke-width="6" stroke-dasharray="30 20"`); txt(R.beam.x+R.beam.w/2,D*0.18,T.beam,{fs:sfs,c:C('muted'),rot:-90}); }
   // ---- lifts
+  const fronts=[];
   for(const {o,x0} of R.lifts){
     const mc=MC(o), cx=x0+o.carL, cy=o.cy, o1=x0+o.o1, op=R.openings[R.lifts.findIndex(l=>l.o===o)];
-    // landing frame legs + clearance to shoulder
-    rect(o1-o.legL,D+20,o.legL,t-40,C('ink2')); rect(o1+o.clear,D+20,o.legR,t-40,C('ink2'));
-    for(const [gx,gw] of [[o1-o.legL-o.shGapL,o.shGapL],[o1+o.clear+o.legR,o.shGapR]]) if(gw>0) rect(gx,D+20,gw,t-40,gw<P.shGap?C('warnSoft'):C('okSoft'),`stroke="${gw<P.shGap?C('warn'):C('ok')}" stroke-width="5" stroke-dasharray="14 9"`);
-    // landing door panels + sill
-    const pw = o.dt==='T3'? o.clear/3+40 : o.clear/2+40;
-    if(o.dt==='C'){ rect(o1-pw/2,D-70,pw,24,C('muted')); rect(o1+o.clear-pw/2,D-70,pw,24,C('muted')); }
-    else { const n=o.dt==='T3'?3:2, toR=o.doorDir==='R'; for(let i=0;i<n;i++){ const p2 = toR? o1+o.clear-pw+20-i*30 : o1-20+i*30; rect(p2,D-70-i*34,pw,24,C('muted')); } }
-    rect(o1,D-20,o.clear,20,C('accent'));
+    // front zone, as in Felesa drawings: car front -> 30+30 -> car door (90) -> landing door (90) -> wall; the frame sits on the landing side of the landing door
+    const yCar=cy+o.extD, yCD=yCar+P.doorZone.carDoor-P.doorZone.landDoor, yLD=yCar+P.doorZone.carDoor, yLD1=yLD+P.doorZone.landDoor;
+    const pw = o.dt==='T3'? o.clear/3+40 : o.clear/2+40, stack=o.dt==='C'? 0 : o.dt==='T3'? 2*o.clear/3 : o.clear/2;
+    const zx0 = o.dt==='C'? o1-o.clear/2 : (o.doorDir==='R'? o1 : o1-stack), zx1 = o.dt==='C'? o1+o.clear*1.5 : (o.doorDir==='R'? o1+o.clear+stack : o1+o.clear);
+    const zone=(y0)=>rect(zx0,y0,zx1-zx0,P.doorZone.landDoor,'none',`stroke="${C('muted')}" stroke-width="4" stroke-dasharray="16 10"`);
+    const panels=(y0)=>{ if(o.dt==='C'){ rect(o1-pw/2+o.clear/2-o.clear/2,y0+30,pw,26,C('muted')); rect(o1+o.clear-pw/2,y0+30,pw,26,C('muted')); return; }
+      const n=o.dt==='T3'?3:2, toR=o.doorDir==='R'; for(let i=0;i<n;i++){ const p2 = toR? o1+o.clear-pw+20-i*(o.clear/n) : o1-20+i*(o.clear/n); rect(toR?p2-0:p2,y0+12+i*24,pw,20,C('muted')); } };
+    zone(yCD); panels(yCD); zone(yLD); panels(yLD);
+    rect(o1,yLD-8,o.clear,16,C('accent'));                       // landing sill (track)
+    // landing frame (jambs) on the landing side of the landing door, with the clearance to the shoulders
+    const jy=yLD1-20, jh=90;
+    rect(o1-o.legL,jy,o.legL,jh,C('ink2')); rect(o1+o.clear,jy,o.legR,jh,C('ink2'));
+    for(const [gx,gw] of [[o1-o.legL-o.shGapL,o.shGapL],[o1+o.clear+o.legR,o.shGapR]]) if(gw>0) rect(gx,jy,gw,jh,gw<P.shGap?C('warnSoft'):C('okSoft'),`stroke="${gw<P.shGap?C('warn'):C('ok')}" stroke-width="5" stroke-dasharray="14 9"`);
+    txt(o1+o.clear/2, D+t-36, T.landing, {fs:sfs*0.8, c:C('muted')});
+    fronts.push({yCar,yLD,yLD1,zx0,jx:o1-o.legL/2,jy,jh,fpTxt:({std:lang==='en'?'standard: sill in shaft, frame on landing':'סטנדרטי: סף בפיר, משקוף על הפודסט',out:lang==='en'?'outside the shaft':'מחוץ לפיר',in:lang==='en'?'inside the shaft':'בתוך הפיר'})[o.I.fp||'std']});
     // car
     s.push(`<rect x="${cx}" y="${cy}" width="${o.extW}" height="${o.extD}" fill="${C('car')}" stroke="${mc}" stroke-width="14"/>`);
     s.push(`<rect x="${cx+30}" y="${cy}" width="${o.iw}" height="${o.id}" fill="none" stroke="${mc}" stroke-width="4" stroke-dasharray="20 14"/>`);
@@ -1162,7 +1236,12 @@ function drawPlan(R, opt={}){
     topPts.push(x0,r1,r2); topLab.push(o.side==='L'?cw:ot,{v:o.L==='NF'?o.dbgCar:o.extW,n:o.L==='NF'?T.dbg:T.car},o.side==='L'?ot:cw);
     if(i===R.lifts.length-1) topPts.push(x0+o.I.W); else topPts.push(x0+o.I.W);
   });
-  const yTop=-t-(rear?fs*2.2:fs*1.2);
+  const yIn=-t-(rear?fs*2.2:fs*1.2), inPts=[], inLab=[];
+  R.lifts.forEach(({o,x0})=>{ const cx=x0+o.carL, r1=o.L==='NF'?cx-o.railOff:cx, r2=o.L==='NF'?cx+o.extW+o.railOff:cx+o.extW, wl=(o.extW-o.iw)/2;
+    inPts.push(x0,r1,cx,cx+wl,cx+wl+o.iw,cx+o.extW,r2,x0+o.I.W);
+    inLab.push(null,{v:Math.round(o.railOff||0),n:T.chassis},{v:wl,n:T.carWall},{v:o.iw,n:T.inner},{v:wl,n:T.carWall},{v:Math.round(o.railOff||0),n:T.chassis},null); });
+  const kIn=dimChain(inPts,yIn,inLab,-1,true);
+  const yTop=yIn-fs*2.2-row*(kIn+0.4);
   const kTop=dimChain(topPts,yTop,topLab,-1);
   dimChain([0,W],yTop-fs*2.6-row*(kTop+0.6),[{v:W,n:T.shaftW}],-1);
   // bottom 1: real front wall — shoulder | gap | frame | clear | frame | gap | (pillar) ... | shoulder
@@ -1201,6 +1280,15 @@ function drawPlan(R, opt={}){
   const cy=o0.cy, frontGap=D-cy-o0.extD;
   dv([0,cy,cy+o0.extD,D], W+t+fs*1.6+rOff, [{v:cy,n:T.back},{v:o0.id,n:T.carInt},{v:frontGap,n:T.front,c:frontGap<P.front?C('warn'):''}]);
   dv([0,D], W+t+fs*4.2+rOff, [{v:D,n:T.shaftD}]);
+  // front zone callouts (left of the shaft): car door | landing door (in shaft / on the landing) | frame — spread vertically with leaders
+  { const f0=fronts[0], inS=Math.max(0,Math.min(D,f0.yLD1)-f0.yLD), onL=Math.max(0,f0.yLD1-Math.max(D,f0.yLD));
+    const it=[{y:f0.yLD-P.doorZone.landDoor/2, x:f0.zx0, t:`${T.carDoor} ${P.doorZone.landDoor}`},
+              {y:f0.yLD+P.doorZone.landDoor/2, x:f0.zx0, t:`${lang==='en'?'Landing door':'דלת קומה'} ${P.doorZone.landDoor}: ${inS?`${inS} ${lang==='en'?'in shaft':'בפיר'}`:''}${inS&&onL?' · ':''}${onL?`${onL} ${T.podest}`:''}`},
+              {y:f0.jy+f0.jh/2, x:f0.jx, t:`${T.frame} ${o0.legL} · ${f0.fpTxt}`}];
+    const gap=row*1.05, mid=it.reduce((a,b)=>a+b.y,0)/it.length; it.forEach((e,k)=>e.ty=mid+(k-1)*gap+fs*0.3);
+    const tx=-t-fs*0.5;
+    for(const e of it){ line(tx+fs*0.15,e.ty-fs*0.3,e.x,e.y,C('muted'),3,'stroke-dasharray="10 7"'); s.push(`<circle cx="${e.x}" cy="${e.y}" r="12" fill="${C('ink2')}"/>`);
+      txt(tx,e.ty,e.t,{fs:sfs*0.9,a:'end',c:C('ink2')}); } }
   txt(-t-fs*(cwDims.some(c=>c.side==='L')?3.4:0.9),D/2,T.view,{fs:sfs,rot:-90,c:C('muted')});
   const m=fs*0.8;
   const vb=[bb.x0-m,bb.y0-m,bb.x1-bb.x0+2*m,bb.y1-bb.y0+2*m];
@@ -1471,14 +1559,14 @@ async function saveDb(st){
 function oSide(){
   $('oPRJ').value=OM.prj; $('oDATE').value=OM.date; $('oNAME').value=OM.measurer;
   document.querySelector(`input[name=osm][value="${OM.mode}"]`).checked=true; document.querySelector(`input[name=odt][value="${OM.dt||'T2'}"]`).checked=true;
-  $('oCL').value=OM.clear||''; $('oCT').value=OM.ct||'big'; $('oCW').value=OM.cw||''; $('oCD').value=OM.cd||''; $('oPS').value=OM.ps||'';
+  $('oCL').value=OM.clear||''; $('oCT').value=OM.ct||'big'; $('oFP').value=OM.fp||'std'; $('oCG').value=OM.cg||'std'; $('oCW').value=OM.cw||''; $('oCD').value=OM.cd||''; $('oPS').value=OM.ps||'';
   for(const p of ['oL','oR']){ const s=OM.sides?.[p]||{K:p==='oR'?'same':'',PS:'8',CW:'',CD:''}; $(p+'K').value=s.K; $(p+'PS').value=s.PS||'8'; $(p+'CW').value=s.CW||''; $(p+'CD').value=s.CD||''; }
   oCabVis();
 }
 function oFromSide(){
   OM.prj=$('oPRJ').value; OM.date=$('oDATE').value; OM.measurer=$('oNAME').value;
   OM.mode=document.querySelector('input[name=osm]:checked').value; OM.dt=document.querySelector('input[name=odt]:checked').value;
-  OM.clear=$('oCL').value; OM.ct=$('oCT').value; OM.cw=$('oCW').value; OM.cd=$('oCD').value; OM.ps=$('oPS').value;
+  OM.clear=$('oCL').value; OM.ct=$('oCT').value; OM.fp=$('oFP').value; OM.cg=$('oCG').value; OM.cw=$('oCW').value; OM.cd=$('oCD').value; OM.ps=$('oPS').value;
   OM.sides=Object.fromEntries(['oL','oR'].map(p=>[p,{K:$(p+'K').value,PS:$(p+'PS').value,CW:$(p+'CW').value,CD:$(p+'CD').value}]));
   oCabVis(); persist();
 }
@@ -1559,7 +1647,7 @@ function oReq(){
   if(ok.length<2) return null;
   const minW=Math.min(...ok.map(r=>r.W)), minD=Math.min(...ok.map(r=>r.D));
   const I={W:minW-20, D:minD-20, SL:Math.max(...ok.map(r=>r.SL)), SR:Math.max(...ok.map(r=>r.SR)), stops:rows.length,
-    dt:OM.dt||'T2', dir:'auto', en:'1', ct:OM.ct||'big', s90:'R', clear:+OM.clear||null, ex:true, mx:'ideal', ps:+OM.ps||null, cw:nv(OM.cw), cd:nv(OM.cd), sm:dup?'duplex':'single', beam:100, sides: dup?{L:sideReq('oL'),R:sideReq('oR')}:undefined};
+    dt:OM.dt||'T2', dir:'auto', en:'1', ct:OM.ct||'big', fp:OM.fp||'std', cg:OM.cg||'std', s90:'R', clear:+OM.clear||null, ex:true, mx:'ideal', ps:+OM.ps||null, cw:nv(OM.cw), cd:nv(OM.cd), sm:dup?'duplex':'single', beam:100, sides: dup?{L:sideReq('oL'),R:sideReq('oR')}:undefined};
   if(dup){ const xL=Math.min(...ok.map(r=>r.SL+r.OL)), xR=Math.max(...ok.map(r=>r.SL+r.OL+r.PIL)); I.openL=xL-I.SL; I.pillar=xR-xL; }
   return {I, rows, ok, minW, minD};
 }
@@ -1654,7 +1742,7 @@ function felesaOrder(R){
     ['TRAVEL', OM.gen.travel||OM.plan.travel||'-'], ['HEADROOM (OH)', OM.gen.oh||OM.plan.oh||'-'], ['PIT', OM.gen.pit||OM.plan.pit||'-'],
     ['DISTANCE BETWEEN FLOORS', rows.map(r=>r.hLift).filter(v=>v).join(', ')||'-'],
     ['MACHINE / CWT SIDE', R.duplex?'OUTER WALLS (LEFT LIFT: LEFT, RIGHT LIFT: RIGHT)':(o.side==='L'?'LEFT':'RIGHT')],
-    ['OBSERVATIONS', [I.SL?`LEFT WALL ${I.SL} MM`:'NO LEFT WALL', I.SR?`RIGHT WALL ${I.SR} MM`:'NO RIGHT WALL', ctrl, 'FRAMES 140 MM, POSITION AS PER ATTACHED TOP VIEW'].join(', ')]];
+    ['OBSERVATIONS', [I.SL?`LEFT WALL ${I.SL} MM`:'NO LEFT WALL', I.SR?`RIGHT WALL ${I.SR} MM`:'NO RIGHT WALL', ctrl, 'FRAMES 140 MM, POSITION AS PER ATTACHED TOP VIEW', {std:'', out:'LANDING DOORS AND FRAMES OUTSIDE THE SHAFT (ON LANDING)', in:'LANDING DOORS AND FRAMES INSIDE THE SHAFT'}[I.fp||'std'], I.cg==='min'?'REDUCED CAR-CHASSIS GAP 25 MM':''].filter(Boolean).join(', ')]];
   return L;
 }
 function oShow(){
@@ -1826,7 +1914,7 @@ function read(){
   return {W:v('W'),D:v('D'),SL:v('SL'),SR:v('SR'),stops:numOrNull('ST')||P.stops, dt:r('dt'), dir:$('DIR').value, en:r('en'), ct:$('CT').value,
     sm:r('sm'), openL:v('OL'), pillar:v('PIL'), beam:v('BM')||100,
     s90:$('S90').value, RL:numOrNull('RL'), RR:numOrNull('RR'), SF:numOrNull('SF'), SB:numOrNull('SB'),
-    clear:+$('CL').value||null, ex:true, mx:r('mx'), ps:+$('PS').value||null, cw:numOrNull('CW'), cd:numOrNull('CD'), sides:{L:sideReq('L'),R:sideReq('R')}};
+    clear:+$('CL').value||null, ex:true, mx:r('mx'), fp:r('fp'), cg:r('cg'), ps:+$('PS').value||null, cw:numOrNull('CW'), cd:numOrNull('CD'), sides:{L:sideReq('L'),R:sideReq('R')}};
 }
 function setVals(I){
   const set=(k,txt,on)=>{ const e=document.querySelector(`.val[data-for="${k}"]`); e.textContent=txt; e.classList.toggle('set',on); };
@@ -1835,11 +1923,12 @@ function setVals(I){
   set('en', I.sm==='duplex'?'אחת (דופלקס)':I.en==='1'?'אחת':I.en==='180'?'מעבר 180°':`90° בקיר ${sideName(I.s90)}`, I.en!=='1');
   set('ps', I.ps?`${I.ps}`:'מקסימום', !!I.ps);
   set('mx', I.mx==='abs'?'גבול מוחלט':'אידיאלי', I.mx==='abs');
+  set('fp', {std:'סטנדרטי',out:'מחוץ לפיר',in:'בתוך הפיר'}[I.fp], I.fp!=='std');
+  set('cg', I.cg==='min'?'מצומצם 25':'סטנדרטי', I.cg==='min');
   set('cs', I.cw||I.cd?`${I.cw??'מקס'}×${I.cd??'מקס'}`:'מקסימלי', !!(I.cw||I.cd));
   const dup=I.sm==='duplex'; $('dupwrap').hidden=!dup; $('o-en').hidden=dup; $('o-ps').hidden=dup; $('o-cs').hidden=dup;
   for(const p of ['L','R']){ const k=$(p+'K').value; $(p+'PS').hidden=k!=='ps'; $(p+'SZ').hidden=k!=='size'; }
   $('W').previousSibling.textContent = dup?'רוחב פיר משותף':'רוחב פיר';
-  if(dup) $('OR').value = I.W-I.SL-I.openL-I.pillar-I.SR;
   $('rearwrap').hidden = I.en!=='180'; $('sidewrap').hidden = I.en!=='90'; $('dirwrap').hidden = I.dt==='C';
 }
 function similar(o){
@@ -1975,7 +2064,15 @@ function tableHtml(){
 for(let p=4;p<=21;p++) for(const id of ['PS','LPS','RPS']) $(id).insertAdjacentHTML('beforeend',`<option value="${p}"${id!=='PS'&&p===8?' selected':''}>${p} נוסעים</option>`);
 $('nproj').textContent=PROJECTS.length; $('nproj2').textContent=PROJECTS.length;
 $('rules').innerHTML=rulesHtml(); $('ptable').innerHTML=tableHtml();
-$('f').addEventListener('input',render); $('f').addEventListener('submit',e=>e.preventDefault());
+// duplex: left opening / pillar / right opening — any two are entered, the least recently edited one is computed
+const DUPF=['OL','PIL','OR']; let dupOrder=['OR','PIL','OL'];
+function dupCalc(changed){
+  if(DUPF.includes(changed)){ dupOrder=dupOrder.filter(k=>k!==changed); dupOrder.push(changed); }
+  const v=id=>+$(id).value||0, calc=dupOrder[0], rest=v('W')-v('SL')-v('SR')-DUPF.filter(k=>k!==calc).reduce((s,k)=>s+v(k),0);
+  $(calc).value=Math.round(rest);
+  for(const k of DUPF){ $(k).classList.toggle('calc',k===calc); const m=$(k).parentElement.querySelector('.cmark'); if(m) m.hidden=k!==calc; }
+}
+$('f').addEventListener('input',e=>{ dupCalc(e.target.id); render(); }); $('f').addEventListener('submit',e=>e.preventDefault()); dupCalc();
 function tab(which){
   const tech=which==='tech', ord=which==='order';
   $('scrOrder').hidden=!ord; $('scrFree').hidden=which!=='free'; $('scrTech').hidden=!tech; document.body.classList.toggle('techmode',tech);
