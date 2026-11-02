@@ -1393,6 +1393,24 @@ function browserSave(name,data){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
 }
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 /* ---------- result model: one or two lifts in one shaft ---------- */
 // R = {W, D, I, lifts:[{o, x0}], openings:[{a,b,cutA,cutB}], beam:{x,w}|null, duplex:bool}
 function singleR(o){
@@ -1911,7 +1929,7 @@ function felesaSheet(R, meta={}){
   const it=[];
   // ---- scale + orientation: A4 portrait like the Felesa sheet; landscape only when it gives a clearly bigger scale (wide duplex shafts)
   const cwtL=R.lifts.some(({o})=>o.side==='L'), cwtR=R.lifts.some(({o})=>o.side==='R');
-  const needL=cwtL?30:24, needR=(cwtL&&cwtR)?44:30;
+  const needL=cwtL?36:30, needR=(cwtL&&cwtR)?50:36;   // room for the depth chains + the front-zone chain
   const ctrlBox=single&&o0.ctrl.type!=='frame';
   const topNeed=(rear?34:22), botNeed=34+(ctrlBox?30:12);
   const DENS=[10,15,20,25,30,35,40,50,60,75,100,125,150];
@@ -2127,12 +2145,21 @@ function felesaSheet(R, meta={}){
     const lf=useR?R.lifts[R.lifts.length-1]:R.lifts[0], oL=lf.o, x0=lf.x0, cy=oL.cy, yc=cy+oL.extD, fg=D-yc, carE=X(useR? x0+oL.carL+oL.extW : x0+oL.carL);
     // small front-zone chain, car front to the shaft wall only (it adds up to the front gap): 30 jamb | 90 car sill |
     // 30 running gap | 90 landing sill | the part of the 40 frame inside the shaft. What sits beyond the wall is the "ON LANDING" mark.
-    const Z=P.doorZone, fz=[...[0,30,Z.carDoor-30,Z.carDoor,Z.carDoor+Z.landDoor].filter(v=>v<fg-0.5).map(v=>Math.round(yc+v)), D];
-    // too dense to draw as a chain at this scale: one line of text along the front gap, e.g. 30+90+30+90+10
-    const parts=fz.slice(1).map((v,i)=>v-fz[i]), xf=s>0? base+2.8 : base-3.2, ym=(Y(yc)+Y(D))/2, str=parts.join('+'), w=fsTextW(str,FS.sm-1.5);
-    tx(xf,ym+w/2,str,{a:'l',rot:90,size:FS.sm-1.5});   // clear of the depth chain's own numbers
-    vchain([Y(0),Y(cy),Y(yc),Y(D)],base+s*9,[String(Math.round(cy)),T('Car depth: ','עומק תא: ')+oL.extD,String(Math.round(fg))],[wallE+s,carE+s*1.5,carE+s*1.5,wallE+s]);
-    vchain([Y(0),Y(D)],base+s*15,[T('Shaft depth: ','עומק פיר: ')+D],[wallE+s,wallE+s]);
+    // front-zone chain from the car front: 30 jamb | 90 car sill | 30 running gap | 90 landing sill | 40 frame (to the frame face,
+    // which may be beyond the wall). Real dimension chain with arrows; the numbers stand off to the side with leaders.
+    const Z=P.doorZone, fz=[0,30,Z.carDoor-30,Z.carDoor,Z.carDoor+Z.landDoor,Z.carDoor+Z.landDoor+P.frameD].map(v=>yc+v), fy=fz.map(Y);
+    const xf=base+s*2, xl=base+s*6, nL=fy.length-1, mid=(fy[0]+fy[nL])/2, gap=3.3;
+    ln(xf,fy[0],xf,fy[nL],{w:FS.dw});
+    fy.forEach(y=>ln(xf-0.7,y+0.7,xf+0.7,y-0.7,{w:FS.lw}));   // slash ticks: arrows do not fit 30 mm at this scale
+    ln(carE+s*1.5,fy[0],xf+s*0.8,fy[0],{w:FS.dw});                                                                // from the car front
+    ln(xf-s*1.5,fy[nL],xf+s*0.8,fy[nL],{w:FS.dw});                                                                 // the frame face
+    for(let i=0;i<nL;i++){ const ym=(fy[i]+fy[i+1])/2, yl=mid+(i-(nL-1)/2)*gap;
+      ln(xf,ym,xl-s*0.4,yl,{w:FS.dw*0.8}); tx(xl,yl+0.9,String(Math.round(fz[i+1]-fz[i])),{a:s>0?'l':'r',size:FS.sm-1}); }
+    const dx=s*5;   // the depth chains move out to make room
+    const stub=base+s*10.5;   // past the front-zone numbers: the extension lines at the car front / front wall start here
+    vchain([Y(0),Y(cy),Y(yc),Y(D)],base+s*9+dx,[String(Math.round(cy)),T('Car depth: ','עומק תא: ')+oL.extD,String(Math.round(fg))],[wallE+s,carE+s*1.5,stub,stub]);
+    vchain([Y(0),Y(D)],base+s*15+dx,[T('Shaft depth: ','עומק פיר: ')+D],[wallE+s,stub]);
+    ln(wallE+s,Y(D),xf-s*1.2,Y(D),{w:FS.dw});   // front wall line up to the chain
   }
   // ---- controller callout (Felesa wording)
   if(single){ const ct=o0.ctrl.type;
