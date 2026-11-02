@@ -523,7 +523,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 <script>
 
 const PROJECTS = /*DATA*/[];
-const APP_VERSION='v20';
+const APP_VERSION='v21';
 
 /* ---------- parameters (derived from the drawings; edit here) ---------- */
 const P = {
@@ -535,7 +535,7 @@ const P = {
     cwtDepthReserve: 560,              // shaft depth >= cwt DBG + 560
   },
   RS: { side: 380, oth: 60, othX: 35 }, // rucksack: car+cwt rails on one wall
-  front: 250, frontX: 250, frontOut: 180, back: 50, backX: 40, // front 250 normal; below only when the frames can go out of the shaft (shoulders allow); 180 absolute
+  front: 250, frontX: 250, frontOut: 180, back: 50, // front 250 normal; below only when the frames can go out of the shaft (shoulders allow); 180 absolute
   framePos: {std: 250, out: 180, in: 290},   // front gap by landing-frame position: std = sill in shaft, frame on landing; out = door+frame on the landing; in = whole door inside the shaft
   doorZone: {carDoor: 150, landDoor: 90}, frameD: 40,   // from the car front: 30 jamb + 90 car sill/door + 30 running gap = 150, landing sill/door 90, frame 40
   railMin: 25,                               // reduced car-to-chassis gap (std 45 / 40) — car walls are 30 each side
@@ -602,6 +602,8 @@ function solve(I){
         if(L==='RS' && Q>1000) continue;
         const g=carEnvelope(I,L,mode,Q); if(!g) continue;
         const id=Math.min(g.id,fl10(maxAreaFor(Q)*1e6/g.iw));
+        // the same load at the full depth: the spare width goes to the CWT / rail-side clearances instead of the back gap
+        if(id<g.id){ const iw=fl10(maxAreaFor(Q)*1e6/g.id); if(iw>=0.7*g.id && iw>=800) cands.push({iw,id:g.id,kind:'max'}); }
         if(id<800) continue;
         cands.push({iw:g.iw,id,kind:'max'});
       }
@@ -612,7 +614,9 @@ function solve(I){
   const m=new Map();
   for(const o of opts){ const k=[o.L,o.q,o.mode,o.isStd?o.stdName:'',o.iw,o.id].join('|'),p=m.get(k); if(!p||o.score>p.score) m.set(k,o); }
   const m2=new Map();
-  for(const o of m.values()){ const k=[o.L,o.q,o.mode,o.isStd?o.stdName:''].join('|'),p=m2.get(k); if(!p||o.area>p.area+0.005||(Math.abs(o.area-p.area)<=0.005&&o.score>p.score)) m2.set(k,o); }
+  const better=(o,p)=> o.fullD!==p.fullD && o.clear===p.clear && Math.abs(o.area-p.area)<=0.03 ? o.fullD   // same load and door: keep the back gap, the spare width goes to the clearances
+    : o.area>p.area+0.005||(Math.abs(o.area-p.area)<=0.005&&o.score>p.score);
+  for(const o of m.values()){ const k=[o.L,o.q,o.mode,o.isStd?o.stdName:''].join('|'),p=m2.get(k); if(!p||better(o,p)) m2.set(k,o); }
   let list=[...m2.values()];
   const bestNormal=Math.max(0,...list.filter(o=>o.mode==='n'&&o.L==='NF').map(o=>o.area));
   list=list.filter(o=>o.mode==='n' || o.area>bestNormal+0.005);
@@ -622,6 +626,32 @@ function solve(I){
   const tier=o=>(o.L==='NF'?8:0)+(o.cuts.length?0:4)+(idealFirst&&o.mode==='n'?2:0)+(o.ctrl.cut?0:1);
   list.sort((a,b)=> tier(b)-tier(a) || b.area-a.area || b.score-a.score);
   return {list:list.slice(0,12), diag};
+}
+
+// requested car (size or persons) vs. clearances / back gap / frame position: when no normal frame fits, say which
+// constraints collide and how much each one would have to give — instead of only "no such car"
+function conflicts(I){
+  if(I.en==='90' || I.sm==='duplex' || !(I.cw||I.cd||I.ps)) return [];
+  const k=P.NF.small, cust=I.mx==='custom';
+  I={...I, mx:'custom', gc:cust?cwtOf(I,k,false):k.cwtX, go:cust?othOf(I,k,false):k.othX};   // the solver already went down to the absolute limits unless the user set the clearances
+  const nf=J=>solve(J).list.some(o=>o.L==='NF');
+  if(nf(I)) return [];
+  const need=f=>{ if(!nf(f(600))) return null; let lo=0,hi=600; while(hi-lo>5){ const m=Math.round((lo+hi)/10)*5; if(nf(f(m))) hi=m; else lo=m; } return hi; };
+  const dw=need(r=>({...I,W:I.W+r,SR:I.SR+r})), dd=need(r=>({...I,D:I.D+r}));   // extra width = less clearance in total; extra depth = less back gap or front
+  const gc=I.gc, go=I.go, bk=backOf(I), fr=frontMin(I,false);
+  const what=[I.cw||I.cd?`תא ${I.cw??'מקס'}×${I.cd??'מקס'}`:'', I.ps?`${I.ps} נוסעים`:'', `חיזוקים ${gc}/${go}`, `מרווח אחורי ${bk}`, I.fp!=='std'?`חזית ${fr}`:''].filter(Boolean).join(', ');
+  const out=[`<b>האילוצים מתנגשים</b> (${what}${cust?'':' — כבר בגבול המוחלט'}) — בנורמל פריים זה לא נכנס. מה צריך לוותר:`];
+  if(dw!=null){ const ec=Math.max(0,gc-k.cwtX), eo=Math.max(0,go-k.othX), r5=v=>Math.round(v/5)*5;   // take it from what is above the absolute limits first
+    const a = dw<=ec+eo? Math.min(ec,r5(dw*ec/(ec+eo||1))) : ec+r5((dw-ec-eo)/2), b=dw-a;
+    out.push(`חיזוקים: חסרים ${dw} מ"מ ברוחב — למשל ${gc-a}/${go-b} במקום ${gc}/${go}${gc-a<k.cwtX||go-b<k.othX?` (מתחת לגבול המוחלט ${k.cwtX}/${k.othX})`:''}`); }
+  if(dd!=null){ const opt=[bk-dd>=0?`מרווח אחורי ${bk-dd} במקום ${bk}`:'', fr-dd>=FP_MIN?`חזית ${fr-dd} במקום ${fr} (מיקום משקופים)`:''].filter(Boolean);
+    out.push(`עומק: חסרים ${dd} מ"מ${opt.length?' — '+opt.join(', או '):` (יותר מהמרווח האחורי ${bk})`}`); }
+  if(dw==null && dd==null) out.push('גם הקטנה של 600 מ"מ ברוחב או בעומק לא מספיקה.');
+  const free=solve({...I,cw:null,cd:null,ps:null}).list.filter(o=>o.L==='NF');
+  if(!free.length) out.push(`עם החיזוקים והמרווחים האלה לא נכנס אף תא בנורמל פריים${I.clear?` עם פתח ${I.clear}`:''}`);
+  else { const b=free.reduce((a,o)=>o.area>a.area?o:a);
+    out.push(I.ps? `נוסעים: עם החיזוקים והמרווחים האלה עד ${Math.max(...free.map(o=>o.persons))} נוסעים (${b.iw}×${b.id})` : `תא: הגדול שנכנס עם החיזוקים והמרווחים האלה ${b.iw}×${b.id} (${b.persons} נוסעים)`); }
+  return out;
 }
 
 function clr(L,q){ return L==='RS'?null : q<=630?P.NF.small : q<=1000?P.NF.mid : P.NF.big; }
@@ -645,6 +675,14 @@ function sillSpan(o1,c,dt,dir){ const L=c/2+50, K=c/2+30, e=15;
   if(dt==='C') return {land:[o1-L,o1+c+L], car:[o1-K,o1+c+K]};
   const sl=dt==='T3'? c*2/3+50 : L, sk=dt==='T3'? c*2/3+30 : K;
   return dir==='R'? {land:[o1-e,o1+c+sl], car:[o1-e,o1+c+sk]} : {land:[o1-sl,o1+c+e], car:[o1-sk,o1+c+e]}; }
+const backOf = I => I.en==='180'? P.front180 : (I.bk!=null && I.bk!=='' && +I.bk>=0 ? +I.bk : P.back);   // back-wall gap: the user's value, default 50
+// Felesa counterweight position (read off ~50 Felesa drawings): the car rail axis sits behind the car middle by
+// 45 (door up to 800) / 100 (door 900+); 1000 kg cars ~25; 180° cars 125 (depth up to 1300) / 100. The car rail axis
+// splits the CWT DBG as DBG/2+125 towards the back and DBG/2-125 towards the front (44 of 47 drawings).
+function railAxis(extD,clear,q,en){ const k = q>=1000? 25 : en==='180'? (extD<=1300?125:100) : clear>=900? 100 : 45;
+  return Math.round((extD/2-k)/5)*5; }   // from the car front (exterior)
+const cwtSplit = dbg => [dbg/2+125, dbg/2-125];   // [towards the back, towards the front] of the car rail axis
+const CWT_BACK_MIN = 150;                         // CWT top rail to the back wall — Felesa drawings go down to 160
 function frontMin(I,x){ return I.en==='180'? P.front180 : I.fp==='custom'? Math.min(FP_MAX,Math.max(FP_MIN,+I.fpv||P.framePos.std)) : (P.framePos[I.fp] ?? P.framePos.std); }
 // side clearances (cwt side / single-rail side): ideal, absolute, or entered by hand
 const cwtOf=(I,k,x)=> I.mx==='custom'&&+I.gc>0? +I.gc : (x?k.cwtX:k.cwt);
@@ -653,7 +691,7 @@ const railOf=(I,k)=> I.cg==='custom'? Math.min(45,Math.max(25,+I.cgv||k.rail)) :
 function carEnvelope(I,L,mode,q){
   const x = mode==='x';
   const front = frontMin(I,x);
-  const back  = I.en==='180'? P.front180 : (+I.bk>0? +I.bk : (x?P.backX:P.back));
+  const back  = backOf(I);
   const id = fl10(I.D - front - back - P.extD);
   let iw;
   if(L==='RS'){
@@ -697,8 +735,14 @@ function build(I,L,side,mode,c){
   if(c.kind==='std') q=c.std.q;
   if(L==='RS' && q>1000) return null;
   const extW=iw+P.extW, extD=id+P.extD;
-  let dbgCar, dbgCwt, gapCwt, gapOth, carL, railOff=0;
-  const front = frontMin(I,x);
+  let dbgCar, dbgCwt, gapCwt, gapOth, carL, railOff=0, cwtList=null;
+  let front = frontMin(I,x);
+  // depth: the back gap is what the user set (default 50). The car depth goes in 10 mm steps, so a remainder under 10
+  // goes to the front (Felesa drawings: back 50, front 240/220/210). A car smaller than the maximum leaves its spare depth at the back (Felesa: Sokolov back 150).
+  const backT = backOf(I), front0 = front;
+  let cy = I.D-front-extD;
+  if(cy-backT>0 && cy-backT<10){ cy=backT; front=I.D-cy-extD; }
+  const fullD = cy===backT;
   const wantC = I.SL + (I.W-I.SL-I.SR)/2;
   if(L==='NF'){
     const k=clr('NF',q);
@@ -712,7 +756,7 @@ function build(I,L,side,mode,c){
     const ideal = side==='L' ? wantC - dbgCar/2 : I.W - wantC - dbgCar/2;
     gapCwt = Math.round(Math.min(rest-minO, Math.max(minC, ideal))); gapOth = rest-gapCwt;
     var gapRange=[minC, rest-minO], gapToCarL = g => side==='L' ? g + (dbgCar-extW)/2 : I.W - g - dbgCar + (dbgCar-extW)/2;
-    const cwtList = c.kind==='std'?[c.std.dw,...CWT_OPTS(q).filter(v=>v!==c.std.dw)]:CWT_OPTS(q);
+    cwtList = c.kind==='std'?[c.std.dw,...CWT_OPTS(q).filter(v=>v!==c.std.dw)]:CWT_OPTS(q);
     dbgCwt = cwtList.find(v => v + P.NF.cwtDepthReserve <= I.D);
     if(q>1000){ dbgCwt = 1400; notes.push({t:'GRL4: מבוסס על 2 פרויקטים בלבד במאגר — לאמת מול Felesa.',c:'warn'}); }
     else if(!dbgCwt) return null;
@@ -734,11 +778,13 @@ function build(I,L,side,mode,c){
   if(I.en!=='180' && I.fp==='out') notes.push({t:`משקופים מחוץ לפיר — ${fpText(front)}`+(canPushOut(I)?'':`
 הפתח בין הכתפיים צר: לבדוק שהדלת והמשקוף נכנסים`),c:canPushOut(I)?'':'warn'});
   if(I.en!=='180' && I.fp==='in') notes.push({t:`משקופים בתוך הפיר — ${fpText(front)}`,c:''});
-  if(I.en!=='180' && +I.bk>0) notes.push({t:`מרווח קיר אחורי ${+I.bk}${+I.bk<P.backX?` — מתחת ל-${P.backX}`:''}`,c:+I.bk<P.backX?'warn':''});
+  if(I.en!=='180'){ const set=I.bk!=null&&I.bk!=='';
+    if(cy>backT) notes.push({t:`מרווח קיר אחורי ${cy} (${set?'הוגדר':'ברירת מחדל'} ${backT}) — הקבינה קצרה מהמקסימום, העודף נשאר מאחור`,c:''});
+    else if(set) notes.push({t:`מרווח קיר אחורי ${backT}`,c:''});
+    if(front>front0) notes.push({t:`חזית ${front} — ${front-front0} מ"מ עודף מעיגול עומק התא ל-10 מ"מ`,c:''}); }
   if(I.en!=='180' && I.fp==='custom'){ const inS=Math.max(0,Math.min(P.doorZone.landDoor,front-P.doorZone.carDoor)); notes.push({t:`מיקום משקופים מותאם — ${fpText(front)}`,c:front<P.frontOut?'warn':''}); }
   if(L==='NF' && I.mx==='custom'){ const k0=clr('NF',q), a=cwtOf(I,k0,false), b=othOf(I,k0,false); if(a<k0.cwtX||b<k0.othX) notes.push({t:`מידות חיזוקים מותאמות ${a} / ${b} — מתחת לגבול המוחלט ${k0.cwtX} / ${k0.othX}`,c:'warn'}); }
   if(L==='NF' && I.cg!=='std') notes.push({t:`מרווח קבינה–שאסי מצומצם ${railOf(I,clr('NF',q))} בכל צד (סטנדרט ${clr('NF',q).rail})`,c:'warn'});
-  const cy = I.D-front-extD;
 
   // ---- front landing door: try every car position (10 mm steps) and keep the best door
   const dt=I.dt;
@@ -804,6 +850,17 @@ function build(I,L,side,mode,c){
   const panL = o1-carL, panR = (carL+extW)-(o1+clear);   // car front panels, measured like Felesa drawings (from car exterior)
   if(dt!=='C' && Math.min(panL,panR) > P.flush[1]) notes.push({t:`המשקוף הוזז ביחס לקבינה: מזוזות ${panL} / ${panR} (לא סטנדרטי)`,c:''});
 
+  // ---- counterweight along the depth (Felesa rule): car rail axis, CWT DBG split around it
+  let railY=cy+extD/2, cwtTop=null, cwtBot=null;
+  if(L==='NF'){
+    railY = cy+extD-railAxis(extD,clear,q,I.en);
+    const pos = v => { const [b,f]=cwtSplit(v); return [railY-b, railY+f]; };
+    const pick = (cwtList||[dbgCwt]).filter(v=>v<=dbgCwt).find(v=>pos(v)[0]>=CWT_BACK_MIN);
+    if(pick && pick!==dbgCwt){ notes.push({t:`DBG משקולת ${pick} במקום ${dbgCwt} — עם מיקום פסי הקבינה לפי פלסה המשקולת לא נכנסת מאחור`,c:'warn'}); dbgCwt=pick; }
+    [cwtTop,cwtBot] = pos(dbgCwt);
+    if(cwtTop<CWT_BACK_MIN) notes.push({t:`פס המשקולת האחורי ${Math.round(cwtTop)} מ"מ מהקיר האחורי (בשרטוטי פלסה לפחות 160) — לבדוק מול Felesa`,c:'warn'});
+  }
+
   // ---- second entrance
   let rear=null, sideDoor=null;
   if(I.en==='180'){
@@ -832,12 +889,48 @@ function build(I,L,side,mode,c){
   if(isStd && L==='NF' && dbgCar!==stdObj.dc) notes.push({t:`DBG קבינה ${dbgCar} (בסטנדרט ${stdObj.dc})`,c:'warn'});
   const allCuts=[...cuts,...(rear?.cuts||[]),...(sideDoor?.cuts||[])];
   const nWarn=notes.filter(n=>n.c==='warn').length;
-  const score = - allCuts.reduce((s,k)=>s+k.mm,0)*3 + clear*2 - nWarn*50 + (isStd?30:0);   // no cutting > wider door > fewer warnings
+  const score = - allCuts.reduce((s,k)=>s+k.mm,0)*3 + clear*2 - nWarn*50 + (isStd?30:0) + (fullD?15:0);   // no cutting > wider door > fewer warnings; spare width to the clearances, not to the back
   if(dt!=='T3'){ const sl=sillSpan(o1,clear,dt,doorDir), wl=Math.round(sl.land[0]), wr=Math.round(I.W-sl.land[1]);
     for(const [v,s] of [[wl,'L'],[wr,'R']]) if(v<0 && (dt==='C'||doorDir===s)) notes.push({t:`סף דלת הקומה חורג מהקיר ה${sideName(s)} ב-${-v} מ"מ`,c:'warn'}); }
-  return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
+  return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -1159,10 +1252,12 @@ function drawPlan(R, opt={}){
     const tRailY=(x,yf,dir)=>{ rect(x-9,dir>0?yf:yf-70,18,70,C('ink')); rect(x-40,dir>0?yf+70:yf-80,80,10,C('ink')); };   // blade tip at yf, pointing at the counterweight/car
     const midY=cy+o.extD/2, HW=o.I.W;
     if(o.L==='NF'){
-      tRail(cx-o.railOff,midY,1); tRail(cx+o.extW+o.railOff,midY,-1);
-      const cwX = x0+(o.side==='L'?70:HW-70), yb=Math.min(D-430,D-60), yt=Math.max(60,yb-o.dbgCwt);
+      const ry=o.railY??midY;   // car rail axis (Felesa: behind the car middle)
+      tRail(cx-o.railOff,ry,1); tRail(cx+o.extW+o.railOff,ry,-1);
+      const cwX = x0+(o.side==='L'?70:HW-70), yt=o.cwtTop??Math.max(60,D-430-o.dbgCwt), yb=o.cwtBot??D-430;
       tRailY(cwX,yt,-1); tRailY(cwX,yb,1); rect(cwX-60,yt+15,120,yb-yt-30,C('cwt'));
-      cwDims.push({x:o.side==='L'?-t:W+t, side:o.side, yt, yb, v:o.dbgCwt});
+      line(cwX-80,ry,cwX+80,ry,C('muted'),4,'stroke-dasharray="14 8"');
+      cwDims.push({x:o.side==='L'?-t:W+t, side:o.side, yt, yb, ry, v:o.dbgCwt});
     } else {
       const y1=midY-o.dbgCar/2, y2=midY+o.dbgCar/2, rx=x0+(o.side==='L'?250:HW-250), cwX=x0+(o.side==='L'?90:HW-90);
       tRailY(rx,y1,-1); tRailY(rx,y2,1); rect(cwX-55,y1+20,110,o.dbgCar-40,C('cwt'));
@@ -1240,7 +1335,8 @@ function drawPlan(R, opt={}){
   for(const c of cwDims){ const x=c.side==='L'? c.x-fs*1.5 : c.x+fs*1.5;
     line(c.side==='L'?x-30:c.x,c.yt,c.side==='L'?c.x:x+30,c.yt,C('muted'),3,'stroke-dasharray="10 8"'); line(c.side==='L'?x-30:c.x,c.yb,c.side==='L'?c.x:x+30,c.yb,C('muted'),3,'stroke-dasharray="10 8"');
     line(x,c.yt,x,c.yb,C('muted'),5); [c.yt,c.yb].forEach(p=>line(x-22,p+22,x+22,p-22,C('ink'),7));
-    txt(x-sfs*0.35,(c.yt+c.yb)/2,`DBG-CW ${c.v}`,{fs:sfs,rot:-90,c:C('ink'),num:true});
+    txt(x-sfs*0.35,(c.yt+c.yb)/2,`DBG-CW ${c.v} (${Math.round(c.ry-c.yt)}/${Math.round(c.yb-c.ry)})`,{fs:sfs,rot:-90,c:C('ink'),num:true});
+    line(x-22,c.ry,x+22,c.ry,C('ink'),5);
     if(c.side==='R') rOff=fs*2.2; }
   const cy=o0.cy, frontGap=D-cy-o0.extD;
   dv([0,cy,cy+o0.extD,D], W+t+fs*1.6+rOff, [{v:cy,n:T.back},{v:o0.id,n:T.carInt},{v:frontGap,n:T.front,c:frontGap<P.front?C('warn'):''}]);
@@ -1364,13 +1460,14 @@ function view3d(R, host){
     const HW=mm(o.I.W), cx=x0+mm(o.carL), cw=mm(o.extW), cd=mm(o.extD), cz=mm(o.cy), ch=2.3, mz=cz+cd/2;
     if(o.L==='NF'){
       const r1=cx-mm(o.railOff), r2=cx+cw+mm(o.railOff);
-      box(0.016,H,0.09,railM,r1-0.04,yc,mz); box(0.016,H,0.09,railM,r2+0.04,yc,mz);
-      const cwx = x0+(o.side==='L'? mm(70) : HW-mm(70)), yb=Math.min(R.D-430,R.D-60), yt=Math.max(60,yb-o.dbgCwt);
+      const rz=mm(o.railY??o.cy+o.extD/2);   // car rail axis
+      box(0.016,H,0.09,railM,r1-0.04,yc,rz); box(0.016,H,0.09,railM,r2+0.04,yc,rz);
+      const cwx = x0+(o.side==='L'? mm(70) : HW-mm(70)), yt=o.cwtTop??Math.max(60,R.D-430-o.dbgCwt), yb=o.cwtBot??R.D-430;
       box(0.09,H,0.016,railM,cwx,yc,mm(yt)); box(0.09,H,0.016,railM,cwx,yc,mm(yb));
       box(0.12,1.6,mm(yb-yt-160),M(0x5d6b73,{m:0.3,r:0.6}),cwx,topF+0.4,mm((yt+yb)/2));
-      box(r2-r1,0.14,0.14,dark,(r1+r2)/2,ch+0.3,mz);
-      box(0.08,ch+0.3,0.14,dark,r1+0.05,(ch+0.3)/2,mz); box(0.08,ch+0.3,0.14,dark,r2-0.05,(ch+0.3)/2,mz);
-      box(r2-r1,0.14,0.14,dark,(r1+r2)/2,-0.1,mz);
+      box(r2-r1,0.14,0.14,dark,(r1+r2)/2,ch+0.3,rz);
+      box(0.08,ch+0.3,0.14,dark,r1+0.05,(ch+0.3)/2,rz); box(0.08,ch+0.3,0.14,dark,r2-0.05,(ch+0.3)/2,rz);
+      box(r2-r1,0.14,0.14,dark,(r1+r2)/2,-0.1,rz);
     } else {
       const wx = x0+(o.side==='L'? mm(250) : HW-mm(250)), dc=mm(o.dbgCar);
       box(0.09,H,0.016,railM,wx,yc,mz-dc/2); box(0.09,H,0.016,railM,wx,yc,mz+dc/2);
@@ -1543,7 +1640,7 @@ function felesaSheet(R, meta={}){
   // ---- lifts
   const cwDims=[];
   R.lifts.forEach(({o,x0},li)=>{
-    const cx=x0+o.carL, cy=o.cy, midY=cy+o.extD/2, HW=o.I.W, o1=x0+o.o1, c=o.clear;
+    const cx=x0+o.carL, cy=o.cy, midY=o.L==='NF'&&o.railY!=null? o.railY : cy+o.extD/2, HW=o.I.W, o1=x0+o.o1, c=o.clear;   // NF: the car rail axis (Felesa: behind the car middle)
     // car: exterior + interior
     wr(cx,cy,o.extW,o.extD,{w:0.3});
     const ix=cx+(o.extW-o.iw)/2, iy=cy+(o.extD-o.id);
@@ -1597,7 +1694,7 @@ function felesaSheet(R, meta={}){
       tRail(r1,midY,1); tRail(r2,midY,-1);
       wr(r1-10,midY-110,40,220,{w:FS.dw}); wr(r2-30,midY-110,40,220,{w:FS.dw});           // guide shoes
       const cwX = o.side==='L'? Math.max(x0+75, r1-190) : Math.min(x0+HW-75, r2+190);
-      const yb=Math.min(D-430,D-60), yt=Math.max(60,yb-o.dbgCwt);
+      const yt=o.cwtTop??Math.max(60,D-430-o.dbgCwt), yb=o.cwtBot??D-430;
       tRailY(cwX,yt,-1); tRailY(cwX,yb,1);
       wr(cwX-70,yt+12,140,yb-yt-24,{w:FS.lw}); wr(cwX-50,yt+45,100,yb-yt-90,{w:FS.dw});
       for(let y=yt+45+(yb-yt-90)/4;y<yb-45-1;y+=(yb-yt-90)/4) wl(cwX-50,y,cwX+50,y,{w:FS.dw});
@@ -1616,6 +1713,7 @@ function felesaSheet(R, meta={}){
     tx(X(cx+o.extW/2),Y(cy+o.extD*0.36)+5,`Car area: ${(o.iw*o.id/1e6).toFixed(2)} m²`,{size:FS.sm+1});
     const yIw=Y(iy)+6; hchain([X(ix),X(ix+o.iw)],yIw,[String(o.iw)],null);
     vchain([Y(iy),Y(iy+o.id)],X(ix+o.iw*0.72),[String(o.id)],null);
+    if(o.L==='NF') vchain([Y(midY),Y(cy+o.extD)],X(ix+o.iw*0.45),[String(Math.round(cy+o.extD-midY))],null);   // car rail axis from the car front, as Felesa dimensions it
     const yPan=Y(iy+o.id)-4.5; hchain([X(cx),X(o1),X(o1+c),X(cx+o.extW)],yPan,[String(Math.round(o1-cx)),String(c),String(Math.round(cx+o.extW-o1-c))],Y(cy+o.extD));   // car front panels: from the car exterior, like Felesa
     // floors served + entry arrow, in the opening
     const n=+I.stops||2, f0=+I.fl0||0, fl=I.flList?.length===n? I.flList.join(',') : n<=16? Array.from({length:n},(_,i)=>i+f0).join(',') : `${f0} - ${f0+n-1}`;
@@ -1815,8 +1913,11 @@ function render(){
 function show(I){
   const out=$('out');
   const head=`<div class="summary"><span>פיר <b class="num">${I.W}×${I.D}</b></span><span>פתח בין כתפיים <b class="num">${I.W-I.SL-I.SR}</b></span>${I.fp!=='std'?`<span>משקופים ${I.fp==='out'?'מחוץ לפיר':'בתוך הפיר'}</span>`:''}${I.cg!=='std'?`<span>מרווח שאסי ${I.cg==='min'?25:35}</span>`:''}</div>`;
+  const conf=conflicts({...I,dt:I.dt==='auto'?'T2':I.dt});
+  if(!LIST.length && conf.length){ out.innerHTML=head+`<div class="empty">${conf.join('<br>• ')}</div>`; return; }
   if(!LIST.length){ out.innerHTML=head+`<div class="empty"><b>לא נמצאה קבינה</b>אין קבינה שנכנסת לפיר הזה עם מרווח משקולת 300 ופס בודד 120${I.ps||I.cw||I.cd||I.clear?' ובדרישות שבהגדרות הנוספות — נסה להחזיר אותן למקסימום':''}.</div>`; return; }
   const o=LIST[SEL], notes=o.notes.filter(n=>!/ארון|רוגזק — אפשרות משנית/.test(n.t));
+  if(conf.length) notes.unshift({t:conf.join('\n• ').replace(/<\/?b>/g,''),c:'warn'});
   if(I.minClr) notes.unshift({t:`מידות חיזוקים ${o.gapCwt}/${o.gapOth} — מחייב חתימה על המידות. במקרה של סטיות יש לחצוב בבטון.`,c:'warn'});
   out.innerHTML=head+`
   <article class="hero" style="${mcStyle(o)}">
