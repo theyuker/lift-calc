@@ -456,6 +456,10 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 .rng input[type=range]{width:100%;accent-color:var(--accent)}
 .rng-l{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .rng-l b{color:var(--ink);font-size:13px;text-align:center;white-space:pre-line;line-height:1.5}
+.fpt{display:grid;grid-template-columns:auto auto auto;gap:2px 12px;font:500 12.5px/1.4 var(--f-body);color:var(--ink-2);white-space:normal}
+.fpt .h{grid-column:1/-1;font-weight:700;color:var(--ink);font-size:13.5px}
+.fpt i{font-style:normal;color:var(--muted);font-size:11.5px}
+.fpt span{font-family:var(--f-num);text-align:center}
 .notes li{white-space:pre-line}
 .more.tune{margin-top:4px}
 </style>
@@ -500,7 +504,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
   <p class="minwarn" id="minwarn" hidden>⚠ מרווחים מינימליים מחייבים חתימה על המידות. במקרה של סטיות — יש לחצוב בבטון.</p>
   <label class="fpsel">מרווח קיר אחורי<input id="BK" type="number" inputmode="numeric" step="5" placeholder="50 (ברירת מחדל)"></label>
   <label class="fpsel">מיקום משקופים<select id="FP"><option value="std">סטנדרטי — סף בפיר, משקוף על הפודסט</option><option value="out">מחוץ לפיר — דלת ומשקוף על הפודסט</option><option value="in">בתוך הפיר — כל הדלת בפיר</option><option value="custom">מותאם — לבחור בעצמי</option></select></label>
-  <div id="fpCustom" class="rng" hidden><input id="FPV" type="range" min="160" max="300" step="10" value="250" aria-label="מרווח חזית"><div class="rng-l"><span>מחוץ לפיר</span><b class="num" id="fpvOut"></b><span>בתוך הפיר</span></div></div>
+  <div id="fpCustom" class="rng" hidden><input id="FPV" type="range" min="160" max="300" step="10" value="250" aria-label="מרווח חזית"><div class="rng-l"><span>מחוץ לפיר</span><div class="fpt" id="fpvOut"></div><span>בתוך הפיר</span></div></div>
   <label class="fpsel">מרווח קבינה–שאסי<select id="CG"><option value="std">סטנדרטי 40–45</option><option value="mid">35 — עד 20 מ"מ יותר ברוחב</option><option value="min">25 — עד 40 מ"מ יותר ברוחב</option><option value="custom">מותאם — לבחור בעצמי</option></select></label>
   <div id="cgCustom" class="rng" hidden><input id="CGV" type="range" min="25" max="45" step="1" value="45" aria-label="מרווח קבינה–שאסי"><div class="rng-l"><span>25</span><b class="num" id="cgvOut"></b><span>45</span></div></div>
   <details class="opt lite-opt"><summary>הגדרות נוספות <span class="val" id="optv">הכול על מקסימום</span></summary><div class="lite-grid">
@@ -665,6 +669,8 @@ const FP_MIN=150, FP_MAX=300;   // custom frame position: 150 = landing door + f
 function fpSplit(f){ const z=P.doorZone, d0=z.carDoor, d1=d0+z.landDoor, f1=d1+P.frameD, cl=(v,m)=>Math.max(0,Math.min(m,v));
   const dIn=cl(f-d0,z.landDoor), fIn=cl(f-d1,P.frameD);
   return {dIn, dOut:z.landDoor-dIn, fIn, fOut:P.frameD-fIn, tIn:dIn+fIn, tOut:z.landDoor-dIn+P.frameD-fIn}; }
+function fpHtml(f){ const s=fpSplit(f);   // compact table for the slider: what sits inside the shaft and what on the landing
+  return `<div class="h">חזית ${f}</div><i></i><i>בפיר</i><i>בפודסט</i><i>דלת קומה</i><span>${s.dIn}</span><span>${s.dOut}</span><i>משקוף</i><span>${s.fIn}</span><span>${s.fOut}</span>`; }
 function fpText(f){ const s=fpSplit(f);
   return `חזית ${f}
 בתוך הפיר: ${s.tIn} (דלת קומה ${s.dIn}${s.fIn?` + משקוף ${s.fIn}`:''})
@@ -895,6 +901,18 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -1901,7 +1919,7 @@ function render(){
   const c = I.mxl==='custom'? {cwt:Math.max(280,I.gcl??300), oth:Math.max(110,I.gol??120)} : I.mxl==='min'? CLR.min : CLR.std;
   for(const k of ['small','mid']) Object.assign(P.NF[k],{cwt:c.cwt,oth:c.oth,cwtX:c.cwt,othX:c.oth});
   $('mxCustom').hidden=I.mxl!=='custom'; $('fpCustom').hidden=I.fp!=='custom'; $('cgCustom').hidden=I.cg!=='custom';
-  { $('fpvOut').textContent=fpText(I.fpv); $('cgvOut').textContent=`${I.cgv} מ"מ בכל צד`; }
+  { $('fpvOut').innerHTML=fpHtml(I.fpv); $('cgvOut').textContent=`${I.cgv} מ"מ בכל צד`; }
   $('rule').innerHTML=`מרווח משקולת <b class="num">${c.cwt}</b> · פס בודד <b class="num">${c.oth}</b> — לא יורדים מזה`; $('minwarn').hidden=!I.minClr;
   if(I.W<1000||I.D<1000){ out.innerHTML='<div class="empty"><b>הזן רוחב ועומק פיר</b>במילימטרים, מידות פנים. כתפיים — אם יש. התוכנה תחזיר את הקבינה הגדולה ביותר שנכנסת עם מרווח משקולת 300 ופס בודד 120.</div>'; return; }
   if(I.SL+I.SR>=I.W){ out.innerHTML='<div class="empty"><b>הכתפיים רחבות מהפיר</b>בדוק את המידות.</div>'; return; }
