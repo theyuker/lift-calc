@@ -290,7 +290,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px color-m
 .seg label{border-radius:10px;transition:background .2s,color .2s,box-shadow .2s}
 .seg label:has(input:checked){background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 6px 16px -8px var(--accent)}
 .opt[open]{background:var(--surface-2)}
-.opt>summary .val.set{background:var(--coral-soft);color:var(--coral)}
+.opt>summary .val.set{background:var(--indigo-soft);color:var(--indigo)}
 
 /* buttons */
 button{border-radius:var(--r-sm);border:1.5px solid var(--line-2);transition:transform .15s,box-shadow .2s,background .2s,border-color .2s}
@@ -515,7 +515,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
   <p class="hint">שמאל/ימין כשעומדים בלובי מול הפיר.</p>
   <p class="sec-t">כיוונון הפיר <span class="hint">הפרמטרים שקובעים את גודל הקבינה</span></p>
   <label class="fpsel">מידות חיזוקים<select id="MX"><option value="std">300 / 120</option><option value="min">מינימליים 280 / 110</option><option value="custom">מותאם — לבחור בעצמי</option></select></label>
-  <div class="row2" id="mxCustom" hidden><label>מרווח משקולת<input id="GC" type="number" inputmode="numeric" step="5" min="280" value="300"></label><label>פס בודד<input id="GO" type="number" inputmode="numeric" step="5" min="110" value="120"></label></div>
+  <div class="row2" id="mxCustom" hidden><label>מרווח משקולת<input id="GC" type="number" inputmode="numeric" step="10" min="280" value="300"></label><label>פס בודד<input id="GO" type="number" inputmode="numeric" step="10" min="110" value="120"></label></div>
   <p class="minwarn" id="minwarn" hidden>⚠ מרווחים מינימליים מחייבים חתימה על המידות. במקרה של סטיות — יש לחצוב בבטון.</p>
   <label class="fpsel">מרווח קיר אחורי<input id="BK" type="number" inputmode="numeric" step="5" placeholder="50 (ברירת מחדל)"></label>
   <label class="fpsel">מיקום משקופים<select id="FP"><option value="std">סטנדרטי — סף בפיר, משקוף על הפודסט</option><option value="out">מחוץ לפיר — דלת ומשקוף על הפודסט</option><option value="in">בתוך הפיר — כל הדלת בפיר</option><option value="custom">מותאם — לבחור בעצמי</option></select></label>
@@ -678,9 +678,9 @@ function conflicts(I,opt={}){
   const gc=I.gc, go=I.go, bk=backOf(I), fr=frontMin(I,false), fixes=[];
   const given=[I.cw||I.cd?`תא ${I.cw??'מקס'}×${I.cd??'מקס'}`:'', I.ps?`${I.ps} נוסעים`:'', `חיזוקים ${gc} / ${go}`, `מרווח אחורי ${bk}`, I.fp!=='std'?`חזית ${fr}`:''].filter(Boolean);
   const ok=set=>nf({...I,...set});
-  const split=(w,base={})=>{ const ec=Math.max(0,gc-k.cwtX), eo=Math.max(0,go-k.othX), r5=v=>Math.round(v/5)*5;   // only what is above the hard minimum 280/110
-    if(w>ec+eo) return null; let a=Math.min(ec,r5(w*ec/(ec+eo||1))), b=w-a; if(b>eo){ a+=b-eo; b=eo; }
-    for(let i=0;i<4&&!ok({...base,gc:gc-a,go:go-b})&&a<ec;i++) a+=5;
+  const split=(w,base={})=>{ const ec=Math.max(0,gc-k.cwtX), eo=Math.max(0,go-k.othX), r10=v=>Math.round(v/10)*10;   // only what is above the hard minimum 280/110; clearances go in steps of 10
+    w=Math.ceil(w/10)*10; if(w>ec+eo) return null; let a=Math.min(ec,r10(w*ec/(ec+eo||1))), b=w-a; if(b>eo){ a+=b-eo; b=eo; }
+    for(let i=0;i<4&&!ok({...base,gc:gc-a,go:go-b})&&a<ec;i++) a+=10;
     const c=gc-a, o=go-b; return c>=k.cwtX && o>=k.othX && ok({...base,gc:c,go:o})? {mx:'custom',gc:c,go:o} : null; };
   const deep=d=>{ const f=Math.floor((fr-d)/10)*10;   // the same depth from the back gap, else from the front
     return bk-d>=0? [{bk:bk-d},`מרווח אחורי ${bk-d}`] : f>=(opt.fpMin??FP_MIN)? [{fp:'custom',fpv:f},`חזית ${f}`] : null; };
@@ -888,8 +888,9 @@ function build(I,L,side,mode,c){
   const fits = cl => cl<=carMax && P.shaftDoor[dt](cl) <= I.W;
   const ok=P.clears.filter(fits);
   if(I.clear ? !fits(I.clear) : !ok.length) return null;
-  const canCtrl = v => { if(I.ct!=='frame' || dt==='C') return true; const need=P.jambCtrl-Math.max(v.ja,v.jb); if(need<=0) return true;
-    const sh = v.ja>=v.jb? need : -need, n1=v.o1+sh, other = v.ja>=v.jb? v.jb-need : v.ja-need;
+  // frame controller: always in the frame on the side opposite the opening direction (opens right -> left frame)
+  const canCtrl = v => { if(I.ct!=='frame' || dt==='C') return true; const L_=v.dir==='A', need=P.jambCtrl-(L_?v.ja:v.jb); if(need<=0) return true;
+    const n1=v.o1+(L_?need:-need), other=(L_?v.jb:v.ja)-need;
     return n1>=v.lo && n1<=v.hi && other>=P.jambMin; };
   const gaps=[]; for(let g=gapRange[0]; g<=gapRange[1]; g+=10) gaps.push(g); if(!gaps.includes(gapCwt)) gaps.push(gapCwt);
   let best=null;
@@ -923,13 +924,13 @@ function build(I,L,side,mode,c){
   // controller in frame: shift the door within its allowed range so one jamb reaches 180
   const ctrl={type:I.ct, side:null, cut:0};
   if(I.ct==='frame'){
-    const sideL = jl>=jr, need=P.jambCtrl-Math.max(jl,jr);
+    const sideL = dt==='C'? jl>=jr : doorDir==='R', need=P.jambCtrl-(sideL?jl:jr);   // opposite the opening direction
     if(need>0 && !cuts.length && dt!=='C'){
       const sh = sideL? need : -need, n1=o1+sh, other = sideL? jr-need : jl-need;
       if(n1>=d.lo && n1<=d.hi && other>=P.jambMin){ o1=n1; jl+=sh; jr-=sh; }
     }
-    ctrl.side = jl>=jr ? 'L':'R';
-    const j = Math.max(jl,jr);
+    ctrl.side = sideL ? 'L':'R';
+    const j = sideL? jl : jr;
     if(j<P.jambCtrl){ ctrl.cut=P.jambCtrl-j; notes.push({t:`פיקוד במשקוף: בקומה העליונה בלבד לנסר כתף ${sideName(ctrl.side)} ${ctrl.cut} מ"מ (משקוף ${P.jambCtrl})`,c:'cut'}); }
     else notes.push({t:`פיקוד במשקוף ה${sideName(ctrl.side)} בקומה העליונה (משקוף ${j})`,c:''});
   } else if(I.ct==='big') notes.push({t:'ארון פיקוד 450×250×2000 בקומה העליונה, עד 3 מ\' מהפיר',c:''});
@@ -990,6 +991,42 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear,q),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -1643,7 +1680,7 @@ function buildPDF(R, project, order, lang='en', jsPDFc){
 // page 2: a proper table — section bars, zebra rows, label next to its value (right to left in Hebrew)
 function dataSheet(doc,R,project,he,T){
   doc.addPage('a4','portrait');
-  const M=15, W=180, LW=78, RH=7.2, acc=[22,96,86];
+  const M=20, W=170, LW=58, RH=7.4, acc=[22,96,86];   // narrow label column: the value sits right next to its label
   let y=M;
   const put=(str,x,y,o={})=>{ str=String(str); const h=he||hasHe(str);
     doc.setFont(h?'Heebo':'helvetica',o.b?'bold':'normal'); doc.setFontSize(o.size||10); doc.setTextColor(...(o.c||[20,24,32]));
@@ -1658,12 +1695,14 @@ function dataSheet(doc,R,project,he,T){
   const sec=t=>{ if(y>262){ doc.addPage('a4','portrait'); y=M; } y+=3; doc.setFillColor(233,242,240); doc.rect(M,y,W,8,'F'); doc.setFillColor(...acc); doc.rect(he?M+W-1.6:M,y,1.6,8,'F');
     put(t, he?M+W-5:M+5, y+5.6, {a:al,b:true,size:11,c:acc}); y+=8; zebra=0; };
   const row=(k,v,o={})=>{ const h0=he||hasHe(String(v)); doc.setFont(h0?'Heebo':'helvetica','bold'); doc.setFontSize(10);
-    const lines=doc.splitTextToSize(String(v), W-LW-8), h=Math.max(RH, lines.length*4.6+2.6);
+    const lines=doc.splitTextToSize(String(v), W-LW-8);
+    doc.setFont(he||hasHe(k)?'Heebo':'helvetica','normal'); doc.setFontSize(9.5); const kl=doc.splitTextToSize(String(k), LW-5);
+    const h=Math.max(RH, Math.max(lines.length,kl.length)*4.6+2.6);
     if(y+h>284){ doc.addPage('a4','portrait'); y=M; }
-    if(o.hl){ doc.setFillColor(255,244,222); doc.rect(M,y,W,h,'F'); } else if(zebra%2){ doc.setFillColor(247,248,250); doc.rect(M,y,W,h,'F'); }
+    doc.setFillColor(...(o.hl?[255,240,214]: zebra%2?[234,241,250]:[248,250,249])); doc.rect(M,y,W,h,'F');   // alternating soft bands
     zebra++;
-    doc.setDrawColor(222,226,232); doc.setLineWidth(0.2); doc.line(M,y+h,M+W,y+h); doc.line(he?M+W-LW:M+LW,y,he?M+W-LW:M+LW,y+h);
-    put(k,xl,y+4.9,{a:al,size:9.5,c:[96,104,118]});
+    doc.setDrawColor(210,218,228); doc.setLineWidth(0.2); doc.line(M,y+h,M+W,y+h); doc.setDrawColor(255); doc.setLineWidth(0.6); doc.line(he?M+W-LW:M+LW,y,he?M+W-LW:M+LW,y+h);
+    kl.forEach((ln,i)=>put(ln,xl,y+4.9+i*4.6,{a:al,size:9.5,c:[96,104,118]}));
     lines.forEach((ln,i)=>put(ln,xv,y+4.9+i*4.6,{a:al,b:true,size:10}));
     y+=h; };
   const I=R.I, mm=v=>T(`${v} mm`,`${v} מ"מ`);
@@ -1888,7 +1927,7 @@ function felesaSheet(R, meta={}){
   const poly=(pts,o={})=>it.push({t:'p',pts,close:o.close!==false,s:o.s??0,f:o.f??null,w:o.w??FS.lw,d:o.d||null});
   const ln=(x1,y1,x2,y2,o={})=>it.push({t:'p',pts:[[x1,y1],[x2,y2]],close:false,s:o.s??0,f:null,w:o.w??FS.lw,d:o.d||null});
   const tx=(x,y,str,o={})=>{ const size=o.size||FS.txt, hs=o.hs??FS.hs, w=fsTextW(str,size,hs), a=o.rot||0, c=Math.cos(a*Math.PI/180), s=Math.sin(a*Math.PI/180);
-    const sh=o.a==='r'?w:o.a==='l'?0:w/2; it.push({t:'t',x:x-sh*c,y:y+sh*s,str:String(str),size,hs,rot:a,b:!!o.b,u:!!o.u,w}); return w; };
+    const sh=o.a==='r'?w:o.a==='l'?0:w/2; it.push({t:'t',x:x-sh*c,y:y+sh*s,str:String(str),size,hs,rot:a,b:!!o.b,u:!!o.u,w,mask:o.mask!==false}); return w; };
   const wr=(x,y,w,h,o)=>poly([[X(x),Y(y)],[X(x+w),Y(y)],[X(x+w),Y(y+h)],[X(x),Y(y+h)]],o);     // world rect
   const wp=(pts,o)=>poly(pts.map(([x,y])=>[X(x),Y(y)]),o);                                         // world polygon
   const wl=(x1,y1,x2,y2,o)=>ln(X(x1),Y(y1),X(x2),Y(y2),o);
@@ -1981,7 +2020,7 @@ function felesaSheet(R, meta={}){
         else wp([[u(0),yF+dir*P.frameD],[u(leg-10),yF+dir*P.frameD],[u(leg-10),yF],[u(60),yF],[u(60),yF-dir*40],[u(30),yF-dir*40],[u(30),yL+dir*12],[u(0),yL+dir*12]],{f:255,w:FS.lw}); }
       if(label){ // labels inside the sills, on the stacking part (not covered by the panels)
         const left=C_||!R_, ca=left? sl.car[0] : sl.car[1], la_=left? sl.land[0] : sl.land[1], a=left?'l':'r', off=left?1:-1;
-        tx(X(ca)+off*1.2,Y((cs0+cs1)/2)+0.9,T('CAR SILL','סף קבינה'),{a,size:6}); tx(X(la_)+off*1.2,Y((ls0+ls1)/2)+0.9,T('LANDING SILL','סף קומה'),{a,size:6});
+        tx(X(ca)+off*1.2,Y((cs0+cs1)/2)+0.9,T('CAR SILL','סף קבינה'),{a,size:6,mask:false}); tx(X(la_)+off*1.2,Y((ls0+ls1)/2)+0.9,T('LANDING SILL','סף קומה'),{a,size:6,mask:false});
         // landing sill end to side wall, stacking side (measured Felesa sill lengths; not for 3-panel doors)
         if(dt!=='T3') for(const side of C_?['L','R']:[R_?'R':'L']){ const xe=side==='L'? sl.land[0] : sl.land[1], xw=side==='L'? x0 : x0+o.I.W, yy=Y((ls0+ls1)/2);
           const v=Math.round(side==='L'? xe-xw : xw-xe); if(Math.abs(v)<1) continue;
@@ -2027,7 +2066,7 @@ function felesaSheet(R, meta={}){
     const yPan=Y(iy+o.id)-4.5; hchain([X(cx),X(o1),X(o1+c),X(cx+o.extW)],yPan,[String(Math.round(o1-cx)),String(c),String(Math.round(cx+o.extW-o1-c))],Y(cy+o.extD));   // car front panels: from the car exterior, like Felesa
     // floors served + entry arrow, in the opening
     const n=+I.stops||2, f0=+I.fl0||0, fl=I.flList?.length===n? I.flList.join(',') : n<=16? Array.from({length:n},(_,i)=>i+f0).join(',') : `${f0} - ${f0+n-1}`;
-    const ax=X(o1+c/2), ay=Y(D)+Math.max(5.5,t*k*0.8)+1.5;
+    const ax=X(o1+c/2), ay=Y(D)+Math.max(8.5,t*k*0.8+1);   // below the "ON LANDING" mark
     const lw2=tx(ax-2,ay,fl,{a:'r',size:FS.txt+1});
     poly([[ax+1.6,ay-4],[ax+3.6,ay-1.8],[ax+2.4,ay-1.8],[ax+2.4,ay+0.2],[ax+0.8,ay+0.2],[ax+0.8,ay-1.8],[ax-0.4,ay-1.8]],{s:null,f:0,w:0});
     if(rear&&li===0){ const rx2=X(rear.o1+c/2), ry=Y(0)-Math.max(5.5,t*k*0.8)+1.5;
@@ -2089,10 +2128,9 @@ function felesaSheet(R, meta={}){
     // small front-zone chain, car front to the shaft wall only (it adds up to the front gap): 30 jamb | 90 car sill |
     // 30 running gap | 90 landing sill | the part of the 40 frame inside the shaft. What sits beyond the wall is the "ON LANDING" mark.
     const Z=P.doorZone, fz=[...[0,30,Z.carDoor-30,Z.carDoor,Z.carDoor+Z.landDoor].filter(v=>v<fg-0.5).map(v=>Math.round(yc+v)), D];
-    const xf=base+s*3.5, fy=fz.map(Y);
-    ln(xf,fy[0],xf,fy[fy.length-1],{w:FS.dw}); fy.forEach(y=>ln(xf-1,y+1,xf+1,y-1,{w:FS.dw})); ln(xf,fy[fy.length-1],wallE+s*0.5,fy[fy.length-1],{w:FS.dw});
-    for(let i=0;i<fz.length-1;i++){ const v=fz[i+1]-fz[i], ym=(fy[i]+fy[i+1])/2;
-      tx(xf-0.5-(i%2)*2.4,ym+fsTextW(v,FS.sm-1)/2,String(v),{a:'l',rot:90,size:FS.sm-1}); }
+    // too dense to draw as a chain at this scale: one line of text along the front gap, e.g. 30+90+30+90+10
+    const parts=fz.slice(1).map((v,i)=>v-fz[i]), xf=s>0? base+2.8 : base-3.2, ym=(Y(yc)+Y(D))/2, str=parts.join('+'), w=fsTextW(str,FS.sm-1.5);
+    tx(xf,ym+w/2,str,{a:'l',rot:90,size:FS.sm-1.5});   // clear of the depth chain's own numbers
     vchain([Y(0),Y(cy),Y(yc),Y(D)],base+s*9,[String(Math.round(cy)),T('Car depth: ','עומק תא: ')+oL.extD,String(Math.round(fg))],[wallE+s,carE+s*1.5,carE+s*1.5,wallE+s]);
     vchain([Y(0),Y(D)],base+s*15,[T('Shaft depth: ','עומק פיר: ')+D],[wallE+s,wallE+s]);
   }
@@ -2148,9 +2186,15 @@ function felesaSheet(R, meta={}){
   tx(xB+1,F.b-1.2,T(`Scale: 1:${den}`,`קנ"מ 1:${den}`),{a:'l',size:FS.sm}); tx(F.r-5,F.b-1.2,T('Ed 0','מהד 0'),{size:FS.sm});
   return {w:pg.pw,h:pg.ph,land,items:it,den,lang:he?'he':'en'};
 }
+// text knock-out: a white box under each text, drawn after all lines, so no line / arrow / extension line crosses a number
+function textBox(e){ const a=e.rot*Math.PI/180, dx=Math.cos(a), dy=-Math.sin(a), ux=-Math.sin(a), uy=-Math.cos(a), cap=e.size*0.3528*0.74;
+  const P0=[e.x-dx*0.35-ux*0.3, e.y-dy*0.35-uy*0.3], L=e.w+0.7, H=cap+0.6;
+  return [P0,[P0[0]+dx*L,P0[1]+dy*L],[P0[0]+dx*L+ux*H,P0[1]+dy*L+uy*H],[P0[0]+ux*H,P0[1]+uy*H]]; }
+const sheetOrder=sh=>[...sh.items.filter(e=>e.t!=='t'), ...sh.items.filter(e=>e.t==='t')];
 function felesaSVG(sh){
   const g=v=>v==null?'none':`rgb(${v},${v},${v})`, out=[];
-  for(const e of sh.items){
+  for(const e of sheetOrder(sh)){
+    if(e.t==='t' && e.mask) out.push(`<path d="${textBox(e).map((p,i)=>`${i?'L':'M'}${p[0].toFixed(3)} ${p[1].toFixed(3)}`).join('')}Z" fill="#fff"/>`);
     if(e.t==='p'){ const d=e.pts.map((p,i)=>`${i?'L':'M'}${p[0].toFixed(3)} ${p[1].toFixed(3)}`).join('')+(e.close?'Z':'');
       out.push(`<path d="${d}" fill="${g(e.f)}" stroke="${e.s==null||!e.w?'none':g(e.s)}" stroke-width="${e.w}" ${e.d?`stroke-dasharray="${e.d.join(' ')}"`:''} stroke-linejoin="round"/>`); }
     else { const fsz=e.size*0.3528, esc=e.str.replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -2160,7 +2204,8 @@ function felesaSVG(sh){
 }
 function felesaPDF(doc, sh){
   const he=sh.lang==='he'; if(he) pdfHebrew(doc);
-  for(const e of sh.items){
+  for(const e of sheetOrder(sh)){
+    if(e.t==='t' && e.mask){ const b=textBox(e); doc.setFillColor(255); doc.lines(b.slice(1).map((p,i)=>[p[0]-b[i][0],p[1]-b[i][1]]),b[0][0],b[0][1],[1,1],'F',true); }
     if(e.t==='p'){
       if(e.pts.length<2) continue;
       const fill=e.f!=null, stroke=e.s!=null&&e.w>0;
