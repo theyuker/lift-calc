@@ -510,7 +510,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
   <p class="hint">שמאל/ימין כשעומדים בלובי מול הפיר.</p>
   <p class="sec-t">כיוונון הפיר <span class="hint">הפרמטרים שקובעים את גודל הקבינה</span></p>
   <label class="fpsel">מידות חיזוקים<select id="MX"><option value="std">300 / 120</option><option value="min">מינימליים 280 / 110</option><option value="custom">מותאם — לבחור בעצמי</option></select></label>
-  <div class="row2" id="mxCustom" hidden><label>מרווח משקולת<input id="GC" type="number" inputmode="numeric" step="5" value="300"></label><label>פס בודד<input id="GO" type="number" inputmode="numeric" step="5" value="120"></label></div>
+  <div class="row2" id="mxCustom" hidden><label>מרווח משקולת<input id="GC" type="number" inputmode="numeric" step="5" min="280" value="300"></label><label>פס בודד<input id="GO" type="number" inputmode="numeric" step="5" min="110" value="120"></label></div>
   <p class="minwarn" id="minwarn" hidden>⚠ מרווחים מינימליים מחייבים חתימה על המידות. במקרה של סטיות — יש לחצוב בבטון.</p>
   <label class="fpsel">מרווח קיר אחורי<input id="BK" type="number" inputmode="numeric" step="5" placeholder="50 (ברירת מחדל)"></label>
   <label class="fpsel">מיקום משקופים<select id="FP"><option value="std">סטנדרטי — סף בפיר, משקוף על הפודסט</option><option value="out">מחוץ לפיר — דלת ומשקוף על הפודסט</option><option value="in">בתוך הפיר — כל הדלת בפיר</option><option value="custom">מותאם — לבחור בעצמי</option></select></label>
@@ -656,11 +656,11 @@ function conflicts(I,opt={}){
   const gc=I.gc, go=I.go, bk=backOf(I), fr=frontMin(I,false), fixes=[];
   const given=[I.cw||I.cd?`תא ${I.cw??'מקס'}×${I.cd??'מקס'}`:'', I.ps?`${I.ps} נוסעים`:'', `חיזוקים ${gc} / ${go}`, `מרווח אחורי ${bk}`, I.fp!=='std'?`חזית ${fr}`:''].filter(Boolean);
   const ok=set=>nf({...I,...set});
-  if(dw!=null){ const ec=Math.max(0,gc-k.cwtX), eo=Math.max(0,go-k.othX), r5=v=>Math.round(v/5)*5;   // take it from what is above the absolute limits first
-    let a = dw<=ec+eo? Math.min(ec,r5(dw*ec/(ec+eo||1))) : ec+r5((dw-ec-eo)/2), b=dw-a;
-    for(let i=0;i<4&&!ok({gc:gc-a,go:go-b});i++){ a+=5; }
-    const c=gc-a, o=go-b, below=c<k.cwtX||o<k.othX;
-    if(ok({gc:c,go:o}) && c>=(opt.minC??0) && o>=(opt.minO??0)) fixes.push({t:`חיזוקים ${c} / ${o}`, why:`${dw} מ"מ פחות ברוחב${below?' — מתחת לגבול המוחלט, מחייב חתימה':''}`, set:{mx:'custom',gc:c,go:o}}); }
+  if(dw!=null){ const ec=Math.max(0,gc-k.cwtX), eo=Math.max(0,go-k.othX), r5=v=>Math.round(v/5)*5;   // only what is above the hard minimum 280/110
+    if(dw<=ec+eo){ let a=Math.min(ec,r5(dw*ec/(ec+eo||1))), b=dw-a; if(b>eo){ a+=b-eo; b=eo; }
+      for(let i=0;i<4&&!ok({gc:gc-a,go:go-b})&&a<ec;i++) a+=5;
+      const c=gc-a, o=go-b;
+      if(c>=k.cwtX && o>=k.othX && ok({gc:c,go:o})) fixes.push({t:`חיזוקים ${c} / ${o}`, why:`${dw} מ"מ פחות ברוחב`, set:{mx:'custom',gc:c,go:o}}); } }
   if(dd!=null){
     if(bk-dd>=0 && ok({bk:bk-dd})) fixes.push({t:`מרווח אחורי ${bk-dd}`, why:`${dd} מ"מ פחות בגב`, set:{bk:bk-dd}});
     const f=Math.floor((fr-dd)/10)*10;
@@ -717,8 +717,8 @@ const cwtSplit = dbg => [dbg/2+125, dbg/2-125];   // [towards the back, towards 
 const CWT_BACK_MIN = 150;                         // CWT top rail to the back wall — Felesa drawings go down to 160
 function frontMin(I,x){ return I.en==='180'? P.front180 : I.fp==='custom'? Math.min(FP_MAX,Math.max(FP_MIN,+I.fpv||P.framePos.std)) : (P.framePos[I.fp] ?? P.framePos.std); }
 // side clearances (cwt side / single-rail side): ideal, absolute, or entered by hand
-const cwtOf=(I,k,x)=> I.mx==='custom'&&+I.gc>0? +I.gc : (x?k.cwtX:k.cwt);
-const othOf=(I,k,x)=> I.mx==='custom'&&+I.go>0? +I.go : (x?k.othX:k.oth);   // frame position is its own choice, independent of the clearance mode
+const cwtOf=(I,k,x)=> I.mx==='custom'&&+I.gc>0? Math.max(k.cwtX,+I.gc) : (x?k.cwtX:k.cwt);   // hard minimum: CWT side 280, single rail 110 — never below
+const othOf=(I,k,x)=> I.mx==='custom'&&+I.go>0? Math.max(k.othX,+I.go) : (x?k.othX:k.oth);   // frame position is its own choice, independent of the clearance mode
 const railOf=(I,k)=> I.cg==='custom'? Math.min(45,Math.max(25,+I.cgv||k.rail)) : I.cg==='min'? Math.min(P.railMin,k.rail) : I.cg==='mid'? Math.min(35,k.rail) : k.rail;                            // car exterior to car-rail DBG, each side
 function carEnvelope(I,L,mode,q){
   const x = mode==='x';
@@ -815,7 +815,7 @@ function build(I,L,side,mode,c){
     else if(set) notes.push({t:`מרווח קיר אחורי ${backT}`,c:''});
     if(front>front0) notes.push({t:`חזית ${front} — ${front-front0} מ"מ עודף מעיגול עומק התא ל-10 מ"מ`,c:''}); }
   if(I.en!=='180' && I.fp==='custom'){ const inS=Math.max(0,Math.min(P.doorZone.landDoor,front-P.doorZone.carDoor)); notes.push({t:`מיקום משקופים מותאם — ${fpText(front)}`,c:front<P.frontOut?'warn':''}); }
-  if(L==='NF' && I.mx==='custom'){ const k0=clr('NF',q), a=cwtOf(I,k0,false), b=othOf(I,k0,false); if(a<k0.cwtX||b<k0.othX) notes.push({t:`מידות חיזוקים מותאמות ${a} / ${b} — מתחת לגבול המוחלט ${k0.cwtX} / ${k0.othX}`,c:'warn'}); }
+  if(L==='NF' && I.mx==='custom'){ const k0=clr('NF',q); if(+I.gc>0&&+I.gc<k0.cwtX || +I.go>0&&+I.go<k0.othX) notes.push({t:`הוזנו חיזוקים ${I.gc??'-'} / ${I.go??'-'} — המינימום ${k0.cwtX} / ${k0.othX}, חושב לפי המינימום`,c:'warn'}); }
   if(L==='NF' && I.cg!=='std') notes.push({t:`מרווח קבינה–שאסי מצומצם ${railOf(I,clr('NF',q))} בכל צד (סטנדרט ${clr('NF',q).rail})`,c:'warn'});
 
   // ---- front landing door: try every car position (10 mm steps) and keep the best door
@@ -927,6 +927,18 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -1987,7 +1999,9 @@ function render(){
 function show(I){
   const out=$('out');
   const head=`<div class="summary"><span>פיר <b class="num">${I.W}×${I.D}</b></span><span>פתח בין כתפיים <b class="num">${I.W-I.SL-I.SR}</b></span>${I.fp!=='std'?`<span>משקופים ${I.fp==='out'?'מחוץ לפיר':'בתוך הפיר'}</span>`:''}${I.cg!=='std'?`<span>מרווח שאסי ${I.cg==='min'?25:35}</span>`:''}</div>`;
-  const conf=conflicts({...I,dt:I.dt==='auto'?'T2':I.dt},{minC:280,minO:110,fpMin:160,lite:true});   // lite: clearances never below 280/110, slider from 160
+  const lim=['small','mid'].map(k=>[P.NF[k].cwtX,P.NF[k].othX]); for(const k of ['small','mid']) Object.assign(P.NF[k],{cwtX:280,othX:110});   // fixes may go down to the hard minimum 280/110
+  const conf=conflicts({...I,dt:I.dt==='auto'?'T2':I.dt,mx:'custom',gc:P.NF.small.cwt,go:P.NF.small.oth},{fpMin:160,lite:true});
+  ['small','mid'].forEach((k,i)=>Object.assign(P.NF[k],{cwtX:lim[i][0],othX:lim[i][1]}));   // lite: clearances never below 280/110, slider from 160
   if(!LIST.length && conf){ out.innerHTML=head+confHtml(conf); return; }
   if(!LIST.length){ out.innerHTML=head+`<div class="empty"><b>לא נמצאה קבינה</b>אין קבינה שנכנסת לפיר הזה עם מרווח משקולת 300 ופס בודד 120${I.ps||I.cw||I.cd||I.clear?' ובדרישות שבהגדרות הנוספות — נסה להחזיר אותן למקסימום':''}.</div>`; return; }
   const o=LIST[SEL], notes=o.notes.filter(n=>!/ארון|רוגזק — אפשרות משנית/.test(n.t));
