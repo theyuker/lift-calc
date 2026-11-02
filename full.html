@@ -456,6 +456,16 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 .rng input[type=range]{width:100%;accent-color:var(--accent)}
 .rng-l{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .rng-l b{color:var(--ink);font-size:13px;text-align:center;white-space:pre-line;line-height:1.5}
+.conf{background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:var(--r-md);padding:14px 16px;display:grid;gap:10px;margin-bottom:12px}
+.conf-h{font-weight:700;color:var(--warn);font-size:14.5px}
+.conf-g{display:flex;flex-wrap:wrap;gap:6px}
+.conf-g span{background:var(--surface);border-radius:99px;padding:3px 10px;font-size:12.5px;color:var(--ink-2)}
+.conf-g span.lim{color:var(--warn)}
+.conf-s{font-size:13px;color:var(--ink-2)}
+.conf-f{display:flex;flex-wrap:wrap;gap:8px}
+.conf-f button{display:grid;gap:2px;text-align:start;background:var(--surface);border:1.5px solid color-mix(in srgb,var(--warn) 45%,transparent);padding:8px 14px}
+.conf-f button:hover:not(:disabled){border-color:var(--warn)}
+.conf-f b{font-size:14px;color:var(--ink)} .conf-f small{font-size:11.5px;color:var(--muted)}
 .fpt{display:grid;grid-template-columns:auto auto auto;justify-content:center;gap:2px 16px;margin-top:4px;font:500 12.5px/1.4 var(--f-body);color:var(--ink-2);white-space:normal}
 .fpt .h{grid-column:1/-1;font-weight:700;color:var(--ink);font-size:13.5px}
 .fpt i{font-style:normal;color:var(--muted);font-size:11.5px}
@@ -816,7 +826,7 @@ function solve(I){
       for(const Q of LOADS){
         if(L==='RS' && Q>1000) continue;
         const g=carEnvelope(I,L,mode,Q); if(!g) continue;
-        const iw=I.cw||g.iw, id=I.cd||Math.min(g.id,fl10(maxAreaFor(Q)*1e6/iw));
+        const iw=I.cw||(I.cd? Math.min(g.iw,fl10(maxAreaFor(Q)*1e6/I.cd)) : g.iw), id=I.cd||Math.min(g.id,fl10(maxAreaFor(Q)*1e6/iw));   // only the depth given: the width follows the load
         if(iw>g.iw||id>g.id){ diag.push({L,mode,dw:iw-g.iw,dd:id-g.id}); continue; }
         if(loadFor(iw*id/1e6)!==Q) continue;
         cands.push({iw,id,kind:'want'});
@@ -854,28 +864,44 @@ function solve(I){
 
 // requested car (size or persons) vs. clearances / back gap / frame position: when no normal frame fits, say which
 // constraints collide and how much each one would have to give — instead of only "no such car"
-function conflicts(I){
-  if(I.en==='90' || I.sm==='duplex' || !(I.cw||I.cd||I.ps)) return [];
+function conflicts(I,opt={}){
+  // returns {given:[...], fixes:[{t,why,set}]} — every fix is checked: applying its `set` gives a normal frame
+  if(I.en==='90' || I.sm==='duplex' || !(I.cw||I.cd||I.ps)) return null;
   const k=P.NF.small, cust=I.mx==='custom';
   I={...I, mx:'custom', gc:cust?cwtOf(I,k,false):k.cwtX, go:cust?othOf(I,k,false):k.othX};   // the solver already went down to the absolute limits unless the user set the clearances
   const nf=J=>solve(J).list.some(o=>o.L==='NF');
-  if(nf(I)) return [];
-  const need=f=>{ if(!nf(f(600))) return null; let lo=0,hi=600; while(hi-lo>5){ const m=Math.round((lo+hi)/10)*5; if(nf(f(m))) hi=m; else lo=m; } return hi; };
+  if(nf(I)) return null;
+  const need=f=>{ for(let r=5;r<=600;r+=5) if(nf(f(r))) return r; return null; };   // smallest relief that works (not always monotonic: a bigger shaft can change the load class)
   const dw=need(r=>({...I,W:I.W+r,SR:I.SR+r})), dd=need(r=>({...I,D:I.D+r}));   // extra width = less clearance in total; extra depth = less back gap or front
-  const gc=I.gc, go=I.go, bk=backOf(I), fr=frontMin(I,false);
-  const what=[I.cw||I.cd?`תא ${I.cw??'מקס'}×${I.cd??'מקס'}`:'', I.ps?`${I.ps} נוסעים`:'', `חיזוקים ${gc}/${go}`, `מרווח אחורי ${bk}`, I.fp!=='std'?`חזית ${fr}`:''].filter(Boolean).join(', ');
-  const out=[`<b>האילוצים מתנגשים</b> (${what}${cust?'':' — כבר בגבול המוחלט'}) — בנורמל פריים זה לא נכנס. מה צריך לוותר:`];
+  const gc=I.gc, go=I.go, bk=backOf(I), fr=frontMin(I,false), fixes=[];
+  const given=[I.cw||I.cd?`תא ${I.cw??'מקס'}×${I.cd??'מקס'}`:'', I.ps?`${I.ps} נוסעים`:'', `חיזוקים ${gc} / ${go}`, `מרווח אחורי ${bk}`, I.fp!=='std'?`חזית ${fr}`:''].filter(Boolean);
+  const ok=set=>nf({...I,...set});
   if(dw!=null){ const ec=Math.max(0,gc-k.cwtX), eo=Math.max(0,go-k.othX), r5=v=>Math.round(v/5)*5;   // take it from what is above the absolute limits first
-    const a = dw<=ec+eo? Math.min(ec,r5(dw*ec/(ec+eo||1))) : ec+r5((dw-ec-eo)/2), b=dw-a;
-    out.push(`חיזוקים: חסרים ${dw} מ"מ ברוחב — למשל ${gc-a}/${go-b} במקום ${gc}/${go}${gc-a<k.cwtX||go-b<k.othX?` (מתחת לגבול המוחלט ${k.cwtX}/${k.othX})`:''}`); }
-  if(dd!=null){ const opt=[bk-dd>=0?`מרווח אחורי ${bk-dd} במקום ${bk}`:'', fr-dd>=FP_MIN?`חזית ${fr-dd} במקום ${fr} (מיקום משקופים)`:''].filter(Boolean);
-    out.push(`עומק: חסרים ${dd} מ"מ${opt.length?' — '+opt.join(', או '):` (יותר מהמרווח האחורי ${bk})`}`); }
-  if(dw==null && dd==null) out.push('גם הקטנה של 600 מ"מ ברוחב או בעומק לא מספיקה.');
+    let a = dw<=ec+eo? Math.min(ec,r5(dw*ec/(ec+eo||1))) : ec+r5((dw-ec-eo)/2), b=dw-a;
+    for(let i=0;i<4&&!ok({gc:gc-a,go:go-b});i++){ a+=5; }
+    const c=gc-a, o=go-b, below=c<k.cwtX||o<k.othX;
+    if(ok({gc:c,go:o}) && c>=(opt.minC??0) && o>=(opt.minO??0)) fixes.push({t:`חיזוקים ${c} / ${o}`, why:`${dw} מ"מ פחות ברוחב${below?' — מתחת לגבול המוחלט, מחייב חתימה':''}`, set:{mx:'custom',gc:c,go:o}}); }
+  if(dd!=null){
+    if(bk-dd>=0 && ok({bk:bk-dd})) fixes.push({t:`מרווח אחורי ${bk-dd}`, why:`${dd} מ"מ פחות בגב`, set:{bk:bk-dd}});
+    const f=Math.floor((fr-dd)/10)*10;
+    if(f>=(opt.fpMin??FP_MIN) && ok({fp:'custom',fpv:f})) fixes.push({t:`חזית ${f}`, why:`משקופים יותר החוצה לפודסט`, set:{fp:'custom',fpv:f}}); }
+  if(I.ps) for(const [key,lab,v] of [['cd','עומק תא',o=>o.id],['cw','רוחב תא',o=>o.iw]]) if(I[key]){   // keep the persons, let the given car side change
+    const alt=solve({...I,[key]:null}).list.find(o=>o.L==='NF');
+    if(alt) fixes.push({t:`${lab} ${v(alt)}`, why:`${alt.iw}×${alt.id}, ${alt.persons} נוסעים`, set:{[key]:v(alt)}}); }
   const free=solve({...I,cw:null,cd:null,ps:null}).list.filter(o=>o.L==='NF');
-  if(!free.length) out.push(`עם החיזוקים והמרווחים האלה לא נכנס אף תא בנורמל פריים${I.clear?` עם פתח ${I.clear}`:''}`);
-  else { const b=free.reduce((a,o)=>o.area>a.area?o:a);
-    out.push(I.ps? `נוסעים: עם החיזוקים והמרווחים האלה עד ${Math.max(...free.map(o=>o.persons))} נוסעים (${b.iw}×${b.id})` : `תא: הגדול שנכנס עם החיזוקים והמרווחים האלה ${b.iw}×${b.id} (${b.persons} נוסעים)`); }
-  return out;
+  if(free.length){ const b=free.reduce((a,o)=>o.area>a.area?o:a);
+    if(I.ps){ const m=Math.max(...free.map(o=>o.persons)); if(m<I.ps) fixes.push({t:`${m} נוסעים`, why:`המקסימום עם החיזוקים והמרווחים האלה`, set:{ps:m}}); }
+    else fixes.push({t:`תא ${b.iw}×${b.id}`, why:`הגדול שנכנס (${b.persons} נוסעים)`, set:{cw:b.iw,cd:b.id}}); }
+  return {given, atLimit:!cust && !opt.lite, fixes};
+}
+// conflict card with one button per fix; the page wires [data-fix] clicks to its own form
+function confHtml(C){
+  if(!C) return '';
+  const esc=v=>JSON.stringify(v).replace(/"/g,'&quot;');
+  return `<div class="conf"><div class="conf-h">האילוצים מתנגשים — בנורמל פריים זה לא נכנס</div>
+  <div class="conf-g">${C.given.map(g=>`<span>${g}</span>`).join('')}${C.atLimit?'<span class="lim">חיזוקים בגבול המוחלט</span>':''}</div>
+  ${C.fixes.length?`<div class="conf-s">לחץ על אחד כדי לשנות אותו:</div><div class="conf-f">${C.fixes.map(f=>`<button type="button" data-fix="${esc(f.set)}"><b>${f.t}</b><small>${f.why}</small></button>`).join('')}</div>`
+    :'<div class="conf-s">גם הקטנה של 600 מ"מ ברוחב או בעומק לא מספיקה — צריך לשנות את הדרישות.</div>'}</div>`;
 }
 
 function clr(L,q){ return L==='RS'?null : q<=630?P.NF.small : q<=1000?P.NF.mid : P.NF.big; }
@@ -1121,6 +1147,30 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -2558,15 +2608,22 @@ function render(){
   if(I.sm==='duplex'){
     const orr=I.W-I.SL-I.openL-I.pillar-I.SR;
     if(I.openL<600||orr<600){ out.innerHTML='<div class="empty">בדופלקס: הזן כתפיים, פתח שמאל ועמוד כך ששני הפתחים יהיו לפחות 600 מ"מ.</div>'; if(R3){R3.dispose();R3=null;} return; }
-    LIST=solveDuplex(I); DIAG=[]; SEL=0; CONF=[]; show(); return;
+    LIST=solveDuplex(I); DIAG=[]; SEL=0; CONF=null; show(); return;
   }
   if(I.SL+I.SR>=I.W){ out.innerHTML='<div class="empty">סכום הכתפיים גדול מרוחב הפיר. בדוק את המידות.</div>'; if(R3){R3.dispose();R3=null;} return; }
   const r=solve(I); LIST=r.list.map(singleR); DIAG=r.diag; SEL=0; CONF=conflicts(I);
   show();
 }
-let CONF=[];
+let CONF=null;
+function applyFix(set){   // full app: put a conflict fix into the form and recalc
+  const v=(id,x)=>{ $(id).value=x??''; }, r=(n,x)=>{ const e=document.querySelector(`input[name=${n}][value=${x}]`); if(e) e.checked=true; };
+  for(const [k,x] of Object.entries(set)){
+    if(k==='mx'||k==='fp') r(k,x); else v({gc:'GC',go:'GO',bk:'BK',fpv:'FPV',cw:'CW',cd:'CD',ps:'PS'}[k],x); }
+  render();
+}
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-fix]'); if(b && $('out')?.contains(b)) applyFix(JSON.parse(b.dataset.fix)); });
 function noResult(I){
-  if(CONF.length) return `<div class="empty conf">${CONF.join('<br>• ')}</div>`;
+  if(CONF) return confHtml(CONF);
   const tips=[];
   if(I.cw||I.cd){ const nf=DIAG.filter(d=>d.L==='NF'&&d.mode==='n'); if(nf.length){ const b=nf.reduce((a,c)=>(Math.max(c.dw,0)+Math.max(c.dd,0))<(Math.max(a.dw,0)+Math.max(a.dd,0))?c:a);
       tips.push(`התא המבוקש לא נכנס בנורמל פריים: חסרים ${[b.dw>0?b.dw+' מ"מ ברוחב':'',b.dd>0?b.dd+' מ"מ בעומק':''].filter(Boolean).join(' ו-')}.`); } }
@@ -2602,8 +2659,8 @@ function show(){
   const R=LIST[SEL], o=R.main;
   const sim=similar(o).map(p=>`<b>${p.n}</b> <span class="num">${p.W}×${p.D} → ${p.iw}×${p.id}</span>`).join(' · ');
   const used=[...new Set(LIST.map(x=>modelKey(x.main)))];
-  const notes=[...(!R.duplex&&CONF.length?[{t:CONF.join('\n• ').replace(/<\/?b>/g,''),c:'warn'}]:[]), ...(R.notes||[]), ...R.lifts.flatMap(({o:l},i)=>l.notes.map(n=>({...n,t:(R.duplex?(i===0?'שמאל: ':'ימין: '):'')+n.t})))];
-  out.innerHTML = head + `
+  const notes=[...(R.notes||[]), ...R.lifts.flatMap(({o:l},i)=>l.notes.map(n=>({...n,t:(R.duplex?(i===0?'שמאל: ':'ימין: '):'')+n.t})))];
+  out.innerHTML = head + (R.duplex?"":confHtml(CONF)) + `
   <article class="hero" style="${mcStyle(o)}">
     <div class="bar">
       <div class="t">
