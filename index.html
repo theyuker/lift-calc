@@ -458,6 +458,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 .rng-l b{color:var(--ink);font-size:13px;text-align:center;white-space:pre-line;line-height:1.5}
 .conf{background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:var(--r-md);padding:14px 16px;display:grid;gap:10px;margin-bottom:12px}
 .conf-h{font-weight:700;color:var(--warn);font-size:14.5px}
+.conf.info{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent)} .conf.info .conf-h{color:var(--accent)}
 .conf-g{display:flex;flex-wrap:wrap;gap:6px}
 .conf-g span{background:var(--surface);border-radius:99px;padding:3px 10px;font-size:12.5px;color:var(--ink-2)}
 .conf-g span.lim{color:var(--warn)}
@@ -693,10 +694,19 @@ function conflicts(I,opt={}){
 function confHtml(C){
   if(!C) return '';
   const esc=v=>JSON.stringify(v).replace(/"/g,'&quot;');
-  return `<div class="conf"><div class="conf-h">${C.title||'האילוצים מתנגשים — בנורמל פריים זה לא נכנס'}</div>
+  return `<div class="conf${C.info?' info':''}"><div class="conf-h">${C.title||'האילוצים מתנגשים — בנורמל פריים זה לא נכנס'}</div>
   <div class="conf-g">${C.given.map(g=>`<span>${g}</span>`).join('')}${C.atLimit?'<span class="lim">חיזוקים בגבול המוחלט</span>':''}</div>
   ${C.fixes.length?`<div class="conf-s">לחץ על אחד כדי לשנות אותו:</div><div class="conf-f">${C.fixes.map(f=>`<button type="button" data-fix="${esc(f.set)}"><b>${f.t}</b><small>${f.why}</small></button>`).join('')}</div>`
     :`<div class="conf-s">${C.none||'גם הקטנה של 600 מ"מ ברוחב או בעומק לא מספיקה — צריך לשנות את הדרישות.'}</div>`}</div>`;
+}
+// the drawing's back gap differs from the menu (a car shorter than the maximum): say why, offer to lengthen the car or to take the gap
+function backAlert(I,o){
+  if(!o || I.en==='180' || I.sm==='duplex') return null;
+  const bk=backOf(I), d=o.cy-bk; if(d<10) return null;
+  const fixes=[], cd=o.id+Math.floor(d/10)*10, alt=solve({...I,cw:o.iw,cd,ps:null}).list.find(x=>x.L===o.L&&x.iw===o.iw&&x.id===cd);
+  if(alt) fixes.push({t:`עומק תא ${cd}`, why:`${o.iw}×${cd}, ${alt.persons} נוסעים — הגב יורד ל-${alt.cy}`, set:{cw:o.iw,cd,ps:null}});
+  fixes.push({t:`מרווח אחורי ${o.cy}`, why:'לעדכן את התפריט לפי התא הזה', set:{bk:o.cy}});
+  return {title:`מרווח אחורי בשרטוט ${o.cy} ולא ${bk}`, given:[`תא ${o.iw}×${o.id}${o.isStd?` (${o.stdName})`:''}`, `קצר ב-${d} מהעומק המקסימלי`, 'העודף נשאר מאחור'], fixes, info:true};
 }
 // 6 / 8 persons with a non-standard DBG: say so, and offer the standard DBG (or what has to change to get it)
 function dbgAlert(I,o){
@@ -952,6 +962,18 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -1917,8 +1939,9 @@ function felesaSheet(R, meta={}){
     if(L) lUsed=14; else rUsed=14; }
   { const useR = o0.side==='L' || (cwtL&&cwtR), s=useR?1:-1, wallE=useR?xR:xL, used=useR?rUsed:lUsed, base=wallE+s*(used?used+3:0);
     const lf=useR?R.lifts[R.lifts.length-1]:R.lifts[0], oL=lf.o, x0=lf.x0, cy=oL.cy, yc=cy+oL.extD, fg=D-yc, carE=X(useR? x0+oL.carL+oL.extW : x0+oL.carL);
-    // small front-zone chain: car front | 30 jamb | 90 car sill | 30 running gap | 90 landing sill | 40 frame
-    const Z=P.doorZone, fz=[yc,yc+30,yc+Z.carDoor-30,yc+Z.carDoor,yc+Z.carDoor+Z.landDoor,yc+Z.carDoor+Z.landDoor+P.frameD].map(Math.round);
+    // small front-zone chain, car front to the shaft wall only (it adds up to the front gap): 30 jamb | 90 car sill |
+    // 30 running gap | 90 landing sill | the part of the 40 frame inside the shaft. What sits beyond the wall is the "ON LANDING" mark.
+    const Z=P.doorZone, fz=[...[0,30,Z.carDoor-30,Z.carDoor,Z.carDoor+Z.landDoor].filter(v=>v<fg-0.5).map(v=>Math.round(yc+v)), D];
     const xf=base+s*3.5, fy=fz.map(Y);
     ln(xf,fy[0],xf,fy[fy.length-1],{w:FS.dw}); fy.forEach(y=>ln(xf-1,y+1,xf+1,y-1,{w:FS.dw})); ln(xf,fy[fy.length-1],wallE+s*0.5,fy[fy.length-1],{w:FS.dw});
     for(let i=0;i<fz.length-1;i++){ const v=fz[i+1]-fz[i], ym=(fy[i]+fy[i+1])/2;
