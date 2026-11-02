@@ -462,6 +462,10 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 .conf-g{display:flex;flex-wrap:wrap;gap:6px}
 .conf-g span{background:var(--surface);border-radius:99px;padding:3px 10px;font-size:12.5px;color:var(--ink-2)}
 .conf-g span.lim{color:var(--warn)}
+.conf-g button{background:var(--surface);border:1.5px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:99px;padding:4px 12px;font-size:12.5px;color:var(--ink-2)}
+.conf-g button small{color:var(--muted);font-size:11px}
+.conf-g button.ok{border-color:var(--accent);color:var(--accent);font-weight:600}
+.conf-g button:hover:not(:disabled){border-color:var(--warn)}
 .conf-s{font-size:13px;color:var(--ink-2)}
 .conf-f{display:flex;flex-wrap:wrap;gap:8px}
 .conf-f button{display:grid;gap:2px;text-align:start;background:var(--surface);border:1.5px solid color-mix(in srgb,var(--warn) 45%,transparent);padding:8px 14px}
@@ -716,15 +720,26 @@ function conflicts(I,opt={}){
       if(nf({...I,acc:k})){ fixes.push({t:`נגישות ${ACC[k].n}`, why:ACC[k].note, set:{acc:k}}); break; }
     if(nf({...I,acc:''})) fixes.push({t:'בלי דרישת נגישות', why:'לוותר על EN 81-70', set:{acc:''}}); }
   if(I.sd){ given.push('DBG סטנדרטי'); const J={...I,sd:false}; if(nf(J)) fixes.push({t:'לוותר על DBG סטנדרטי', why:'DBG לפי הקבינה', set:{sd:false}}); }
-  return {given, atLimit:abs && !opt.lite, fixes, title:I.sd?'כדי לשמור DBG סטנדרטי - האילוצים מתנגשים':''};
+  // every constraint as a button: one click gives it up (or takes it to its limit); a tick marks the ones that solve it alone
+  const rel=(t,set,why)=>({t,set,why,solves:!!set&&ok(set)}), fmin=opt.fpMin??FP_MIN, chips=[];
+  if(I.cw||I.cd) chips.push(rel(`תא ${I.cw??'מקס'}×${I.cd??'מקס'}`,{cw:null,cd:null},'בלי מידת תא קבועה'));
+  else if(!I.ps && !I.sd && !ACC[I.acc]) chips.push(rel('תא מקסימלי',null));
+  if(I.ps) chips.push(rel(`${I.ps} נוסעים`,{ps:null},'בלי מספר נוסעים קבוע'));
+  chips.push(rel(`חיזוקים ${gc} / ${go}`, gc>k.cwtX||go>k.othX? {mx:'custom',gc:k.cwtX,go:k.othX}:null, `למינימום ${k.cwtX} / ${k.othX}`));
+  { const v=Math.max(0,bk-(dd??bk)); chips.push(rel(`מרווח אחורי ${bk}`, bk>0?{bk:v}:null, `ל-${v}`)); }
+  { const v=Math.max(fmin,Math.floor((fr-(dd??fr))/10)*10); chips.push(rel(I.fp!=='std'?`חזית ${fr}`:`משקופים סטנדרטי (חזית ${fr})`, fr>fmin?{fp:'custom',fpv:v}:null, `חזית ${v} - משקופים יותר החוצה`)); }
+  if(ACC[I.acc]) chips.push(rel('נגישות '+ACC[I.acc].n,{acc:''},'בלי דרישת נגישות'));
+  if(I.sd) chips.push(rel('DBG סטנדרטי',{sd:false},'DBG לפי הקבינה'));
+  return {given, chips, atLimit:abs && !opt.lite, fixes, title:I.sd?'כדי לשמור DBG סטנדרטי - האילוצים מתנגשים':''};
 }
 // conflict card with one button per fix; the page wires [data-fix] clicks to its own form
 function confHtml(C){
   if(!C) return '';
   const esc=v=>JSON.stringify(v).replace(/"/g,'&quot;');
   return `<div class="conf${C.info?' info':''}"><div class="conf-h">${C.title||'האילוצים מתנגשים - בנורמל פריים זה לא נכנס'}</div>
-  <div class="conf-g">${C.given.map(g=>`<span>${g}</span>`).join('')}${C.atLimit?'<span class="lim">חיזוקים בגבול המוחלט</span>':''}</div>
-  ${C.fixes.length?`<div class="conf-s">לחץ על אחד כדי לשנות אותו:</div><div class="conf-f">${C.fixes.map(f=>`<button type="button" data-fix="${esc(f.set)}"><b>${f.t}</b><small>${f.why}</small></button>`).join('')}</div>`
+  ${C.chips? `<div class="conf-s">האילוצים - לחיצה מוותרת על אילוץ (✓ = פותר לבד):</div><div class="conf-g">${C.chips.map(c=>c.set?`<button type="button" class="${c.solves?'ok':''}" data-fix="${esc(c.set)}" title="${c.why||''}">${c.solves?'✓ ':''}${c.t} <small>${c.why||''}</small></button>`:`<span title="כבר בגבול">${c.t}</span>`).join('')}</div>`
+    : `<div class="conf-g">${C.given.map(g=>`<span>${g}</span>`).join('')}${C.atLimit?'<span class="lim">חיזוקים בגבול המוחלט</span>':''}</div>`}
+  ${C.fixes.length?`<div class="conf-s">${C.chips?'או פתרון מוכן:':'לחץ על אחד כדי לשנות אותו:'}</div><div class="conf-f">${C.fixes.map(f=>`<button type="button" data-fix="${esc(f.set)}"><b>${f.t}</b><small>${f.why}</small></button>`).join('')}</div>`
     :`<div class="conf-s">${C.none||'גם הקטנה של 600 מ"מ ברוחב או בעומק לא מספיקה - צריך לשנות את הדרישות.'}</div>`}</div>`;
 }
 // the drawing's back gap differs from the menu (a car shorter than the maximum): say why, offer to lengthen the car or to take the gap
@@ -847,8 +862,11 @@ function build(I,L,side,mode,c){
     const rest = I.W - dbgCar;
     const minC = cwtOf(I,k,x), minO = othOf(I,k,x);
     if(rest < minC+minO) return null;
-    const ideal = side==='L' ? wantC - dbgCar/2 : I.W - wantC - dbgCar/2;
-    gapCwt = Math.round(Math.min(rest-minO, Math.max(minC, ideal))); gapOth = rest-gapCwt;
+    // preferred split of the spare width: away from the minimums - the CWT side to ~320, the rest to the single rail
+    // (e.g. 580 -> 320 / 260, not 290 / 290); below the ideal 320 + 140 both give way in proportion
+    const idC=Math.max(minC,k.cwt+10), idO=Math.max(minO,k.oth);
+    let tC = rest>=idC+idO ? idC : minC + (rest-minC-minO)*(idC-minC)/Math.max(1,(idC-minC)+(idO-minO));
+    gapCwt = Math.max(minC, Math.min(rest-minO, Math.round(tC/10)*10)); gapOth = rest-gapCwt;
     var gapRange=[minC, rest-minO], gapToCarL = g => side==='L' ? g + (dbgCar-extW)/2 : I.W - g - dbgCar + (dbgCar-extW)/2;
     cwtList = c.std?[c.std.dw,...CWT_OPTS(q).filter(v=>v!==c.std.dw)]:CWT_OPTS(q);
     dbgCwt = cwtList.find(v => v + P.NF.cwtDepthReserve <= I.D);
@@ -901,7 +919,7 @@ function build(I,L,side,mode,c){
     else { const all=ok.map(pl); d = all.find(v=>!v.cuts.length && canCtrl(v)) || all.find(v=>!v.cuts.length) || all[all.length-1]; }
     const cutMM=d.cuts.reduce((t,k)=>t+k.mm,0);
     const sg = Math.min(Math.min(d.ja,d.jb)-P.jamb, P.shGap);
-    const sc = -cutMM*100 + d.cl*10 + (canCtrl(d)?500:0) - Math.abs(d.ja-d.jb)*5 - Math.abs(g-gapCwt)/10;   // frame centred in the opening: equal gaps beat 50 on one side only
+    const sc = -cutMM*100 + d.cl*10 + (canCtrl(d)?500:0) - Math.abs(d.ja-d.jb)*((I.SL||I.SR)?5:0.5) - Math.abs(g-gapCwt)*2;   // no shoulders: no wall opening to centre in yet   // frame centred in the opening: equal gaps beat 50 on one side only
     if(!best||sc>best.sc) best={sc,g,d,cL};
   }
   gapCwt=best.g; gapOth=(L==='NF'?I.W-dbgCar:I.W-extW)-gapCwt; carL=best.cL;
@@ -991,6 +1009,24 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear,q),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -2357,7 +2393,7 @@ document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey) && e.key.toLo
 $('f').addEventListener('input',()=>{ render(); clearTimeout(HT); HT=setTimeout(histSync,600); });
 $('out').addEventListener('click',e=>{ const b=e.target.closest('[data-fix]'); if(!b) return;   // conflict fix: put the value into the form
   histSync();
-  for(const [k,x] of Object.entries(JSON.parse(b.dataset.fix))) if(k==='rs') $('LAY').value=x?'rs':''; else if(k!=='sd') $({mx:'MX',gc:'GC',go:'GO',bk:'BK',fp:'FP',fpv:'FPV',cw:'CW',cd:'CD',ps:'PS',acc:'ACC',cg:'CG'}[k]).value=x??'';
+  for(const [k,x] of Object.entries(JSON.parse(b.dataset.fix))) if(k==='rs') $('LAY').value=x?'rs':''; else if(k==='mx') $('MX').value=x==='abs'?'min':x; else if(k!=='sd') $({mx:'MX',gc:'GC',go:'GO',bk:'BK',fp:'FP',fpv:'FPV',cw:'CW',cd:'CD',ps:'PS',acc:'ACC',cg:'CG'}[k]).value=x??'';
   render(); histSync(); }); $('f').addEventListener('submit',e=>e.preventDefault());
 render(); HCUR=fSnap();
 </script>
