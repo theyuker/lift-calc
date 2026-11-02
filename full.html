@@ -729,7 +729,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const PROJECTS = /*DATA*/[];
-const APP_VERSION = 'v17';
+const APP_VERSION='v18';
 
 /* ---------- parameters (derived from the drawings; edit here) ---------- */
 const P = {
@@ -1103,6 +1103,24 @@ function browserSave(name,data){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
 }
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 /* ---------- result model: one or two lifts in one shaft ---------- */
 // R = {W, D, I, lifts:[{o, x0}], openings:[{a,b,cutA,cutB}], beam:{x,w}|null, duplex:bool}
 function singleR(o){
@@ -1363,25 +1381,16 @@ async function exportPDF(R, project, order){
     const dl = window.claude?.use ? await window.claude.use('downloads') : null;
     if(!dl && window.claude){ say('הורדת קבצים זמינה רק בצפייה דרך claude.ai','warn'); return; }
     say('מכין PDF…');
-    const svg=drawPlan(R,{lang:'en',print:true});
-    const vb=svg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
-    const scale=3200/Math.max(vb[2],vb[3]);
-    const img=new Image(); const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
-    await new Promise((ok,bad)=>{ img.onload=ok; img.onerror=bad; img.src=url; });
-    const cv=document.createElement('canvas'); cv.width=Math.round(vb[2]*scale); cv.height=Math.round(vb[3]*scale);
-    const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height); URL.revokeObjectURL(url);
-    const png=cv.toDataURL('image/jpeg',0.9);
-    const { jsPDF } = window.jspdf; const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a3'});
-    const PW=420, PH=297, M=12, side=118;
-    // drawing area
-    const aw=PW-2*M-side-8, ah=PH-2*M-14, r=Math.min(aw/cv.width, ah/cv.height);
-    doc.addImage(png,'JPEG',M,M+14,cv.width*r,cv.height*r,undefined,'FAST');
-    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('IDAN LIFTS — SHAFT TOP VIEW / SETTING-OUT',M,M+6);
-    // info panel
-    let x=PW-M-side, y=M+2; const ln=(k,v)=>{ doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90); doc.text(k,x,y); doc.setTextColor(13); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text(String(v),x+side,y,{align:'right'}); y+=6.2; };
+    // page 1: the SHAFT sheet in the Felesa drawing layout (vector)
+    const { jsPDF } = window.jspdf, sheet=felesaSheet(R,{project}); const doc=new jsPDF({orientation:sheet.land?'landscape':'portrait',unit:'mm',format:'a4'});
+    felesaPDF(doc, sheet);
+    // page 2: data sheet
+    doc.addPage('a4','portrait');
+    const M=15, side=180; let x=M, y=M+4;
+    const ln=(k,v)=>{ doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90); doc.text(k,x,y); doc.setTextColor(13); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text(String(v),x+side,y,{align:'right'}); y+=5.6; };
     const hd=t=>{ y+=2; doc.setDrawColor(200); doc.line(x,y-4,x+side,y-4); doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(53,84,209); doc.text(t,x,y+1); y+=7; };
-    doc.setDrawColor(210); doc.rect(x-4,M-4,side+8,PH-2*M+8);
-    hd('PROJECT'); ln('Project / Ref', (project||'-').replace(/[^\x20-\x7E]/g,'') || '-'); ln('Date', new Date().toLocaleDateString('en-GB'));
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(13); doc.text('IDAN LIFTS — SHAFT DATA',M,y); y+=6;
+    hd('PROJECT'); ln('Project / Ref', (project||'-').replace(/[^ -~]/g,'') || '-'); ln('Date', new Date().toLocaleDateString('en-GB'));
     const I=R.I;
     hd('SHAFT'); ln(R.duplex?'Common shaft W x D':'Shaft W x D', `${R.W} x ${R.D} mm`); ln('Stops', I.stops);
     if(R.duplex) ln('Pillar between openings', `${I.pillar} mm`), ln('Separation beam', `${R.beam.w} mm`);
@@ -1402,8 +1411,8 @@ async function exportPDF(R, project, order){
       ln('Controller', ({big:'Cabinet 450x250x2000',small:'Small 160x150x2000',frame:'In landing frame, top floor'})[o.ctrl.type]);
     });
     y+=3; doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(80);
-    doc.text(doc.splitTextToSize('Shoulders shown as measured on site. Landing frames are drawn at their exact required position, centred in the wall opening with clearance to the shoulders. All dimensions in mm.',side),x,y);
-    if(order&&order.length){ // page 2: order data for the Felesa ELECTRIC ORDER FORM
+    doc.text(doc.splitTextToSize('Shoulders shown as measured on site. Landing frames are drawn at their exact required position, centred in the wall opening with clearance to the shoulders. All dimensions in mm. Preliminary drawing produced by the Idan Lifts shaft calculator.',side),x,y);
+    if(order&&order.length){ // page 3: order data for the Felesa ELECTRIC ORDER FORM
       doc.addPage('a4','portrait'); let yy=20; doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(13); doc.text('ORDER DATA — ELECTRIC ORDER FORM',15,yy); yy+=10;
       for(const [k,v] of order){ doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90); doc.text(String(k),15,yy);
         doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(13); const lines=doc.splitTextToSize(String(v).replace(/[^ -~]/g,''),120); doc.text(lines,75,yy); yy+=Math.max(7,lines.length*5+2); doc.setDrawColor(225); doc.line(15,yy-4.5,195,yy-4.5); }
@@ -1559,6 +1568,299 @@ function planZoom(){
     const up=e=>{ pts.delete(e.pointerId); if(pts.size<2) pinch=null; };
     svg.addEventListener('pointerup',up); svg.addEventListener('pointercancel',up);
   });
+}
+/* ---------- Felesa-style SHAFT sheet: A4 portrait, monochrome, vector (paper mm) -> SVG preview / jsPDF ---------- */
+// Same layout as the Felesa "SHAFT" drawing page: plan with the landing at the bottom, dimension chains with
+// filled arrows, frames/doors/rails/counterweight, controller callout and the title block at the bottom.
+const FS={pw:210, ph:297, fl:15, fr:205, ft:5, fb:292, tb:37, wall:150, txt:10, sm:8, hs:0.86, lw:0.25, dw:0.15, gray:128};
+function fsTextW(str,size,hs){
+  let e=0; for(const ch of String(str)){
+    if(/[0-9]/.test(ch)) e+=.556; else if(' :.,;|/º'.includes(ch)) e+=.278; else if(ch==='-') e+=.333;
+    else if('IJ'.includes(ch)) e+=.3; else if('MW'.includes(ch)) e+=.89; else if(/[A-Z]/.test(ch)) e+=.68;
+    else if('iljtf'.includes(ch)) e+=.26; else if('mw'.includes(ch)) e+=.78; else e+=.53; }
+  return e*size*0.3528*(hs??FS.hs);
+}
+function felesaSheet(R, meta={}){
+  const I=R.I, W=R.W, D=R.D, t=FS.wall, single=R.lifts.length===1, o0=R.lifts[0].o;
+  const rear=single?o0.rear:null, sideD=single?o0.sideDoor:null;
+  const it=[];
+  // ---- scale + orientation: A4 portrait like the Felesa sheet; landscape only when it gives a clearly bigger scale (wide duplex shafts)
+  const cwtL=R.lifts.some(({o})=>o.side==='L'), cwtR=R.lifts.some(({o})=>o.side==='R');
+  const needL=cwtL?30:24, needR=(cwtL&&cwtR)?44:30;
+  const ctrlBox=single&&o0.ctrl.type!=='frame';
+  const topNeed=(rear?34:22), botNeed=34+(ctrlBox?30:12);
+  const DENS=[10,15,20,25,30,35,40,50,60,75,100,125,150];
+  const fit=(pw,ph)=>{ const aw=pw-20-4, ah=ph-10-FS.tb-4; return DENS.find(d=>(W+2*t)/d+needL+needR+(ctrlBox?8:0)<=aw && (D+2*t)/d+topNeed+botNeed<=ah)||150; };
+  const dP=fit(210,297), dL=fit(297,210), land=dL<dP*0.8;
+  const pg=land? {pw:297,ph:210} : {pw:210,ph:297}; pg.fl=15; pg.fr=pg.pw-5; pg.ft=5; pg.fb=pg.ph-5;
+  const den=land?dL:dP, k=1/den;
+  const areaW=pg.fr-pg.fl-4, areaH=pg.fb-FS.tb-pg.ft-4;
+  const ox=pg.fl+2+needL+(areaW-((W+2*t)*k+needL+needR))/2+t*k;
+  const oy=pg.ft+2+topNeed+Math.max(0,(areaH-((D+2*t)*k+topNeed+botNeed))/2)+t*k;
+  const X=x=>ox+x*k, Y=y=>oy+y*k;
+  // ---- primitives (paper mm)
+  const poly=(pts,o={})=>it.push({t:'p',pts,close:o.close!==false,s:o.s??0,f:o.f??null,w:o.w??FS.lw,d:o.d||null});
+  const ln=(x1,y1,x2,y2,o={})=>it.push({t:'p',pts:[[x1,y1],[x2,y2]],close:false,s:o.s??0,f:null,w:o.w??FS.lw,d:o.d||null});
+  const tx=(x,y,str,o={})=>{ const size=o.size||FS.txt, hs=o.hs??FS.hs, w=fsTextW(str,size,hs), a=o.rot||0, c=Math.cos(a*Math.PI/180), s=Math.sin(a*Math.PI/180);
+    const sh=o.a==='r'?w:o.a==='l'?0:w/2; it.push({t:'t',x:x-sh*c,y:y+sh*s,str:String(str),size,hs,rot:a,b:!!o.b,u:!!o.u,w}); return w; };
+  const wr=(x,y,w,h,o)=>poly([[X(x),Y(y)],[X(x+w),Y(y)],[X(x+w),Y(y+h)],[X(x),Y(y+h)]],o);     // world rect
+  const wp=(pts,o)=>poly(pts.map(([x,y])=>[X(x),Y(y)]),o);                                         // world polygon
+  const wl=(x1,y1,x2,y2,o)=>ln(X(x1),Y(y1),X(x2),Y(y2),o);
+  const arrow=(x,y,dx,dy)=>{ const L=2.6, h=0.42, px=-dy, py=dx; poly([[x,y],[x-dx*L+px*h,y-dy*L+py*h],[x-dx*L-px*h,y-dy*L-py*h]],{s:null,f:0,w:0}); };
+  // horizontal chain: xs paper, y paper, labels; ext lines run from yTo (near the object) to just past the line
+  function hchain(xs,y,labels,yTo,o={}){
+    const size=o.size||FS.txt; xs=xs.map(Number);
+    ln(xs[0],y,xs[xs.length-1],y,{w:FS.dw});
+    xs.forEach((x,i)=>{ const yt=Array.isArray(yTo)?yTo[i]:yTo; if(yt!=null) ln(x,yt,x,y+(yt>y?-1.2:1.2),{w:FS.dw}); });
+    const used=[];
+    for(let i=0;i<xs.length-1;i++){ const a=xs[i], b=xs[i+1]; let L=labels[i]; if(L==null||b-a<0.05) continue;
+      if(b-a>=6){ arrow(a,y,-1,0); arrow(b,y,1,0); }
+      else { arrow(a,y,1,0); arrow(b,y,-1,0); ln(a-3.2,y,a,y,{w:FS.dw}); ln(b,y,b+3.2,y,{w:FS.dw}); }
+      if(fsTextW(L,size)>b-a && L.includes(': ')) L=L.split(': ').pop();
+      const w=fsTextW(L,size); let x0=(a+b)/2-w/2;
+      for(const [u,v] of used) if(x0<v+0.6 && x0+w>u-0.6) x0=v+0.8;
+      used.push([x0,x0+w]); tx(x0,y-0.9,L,{a:'l',size}); }
+  }
+  // vertical chain: ys paper (top->bottom), x paper; text left of the line, reading upwards
+  function vchain(ys,x,labels,xTo,o={}){
+    const size=o.size||FS.txt;
+    ln(x,ys[0],x,ys[ys.length-1],{w:FS.dw});
+    ys.forEach((y,i)=>{ const xt=Array.isArray(xTo)?xTo[i]:xTo; if(xt!=null) ln(xt,y,x+(xt>x?-1.2:1.2),y,{w:FS.dw}); });
+    const used=[];
+    for(let i=0;i<ys.length-1;i++){ const a=ys[i], b=ys[i+1]; let L=labels[i]; if(L==null||b-a<0.05) continue;
+      if(b-a>=6){ arrow(x,a,0,-1); arrow(x,b,0,1); }
+      else { arrow(x,a,0,1); arrow(x,b,0,-1); ln(x,a-3.2,x,a,{w:FS.dw}); ln(x,b,x,b+3.2,{w:FS.dw}); }
+      if(fsTextW(L,size)>b-a && L.includes(': ')) L=L.split(': ').pop();
+      const w=fsTextW(L,size); let y1=(a+b)/2+w/2;                       // text runs upwards from y1 to y1-w
+      for(const [u,v] of used) if(y1-w<v+0.6 && y1>u-0.6) y1=u-0.8;
+      used.push([y1-w,y1]); tx(x-0.9,y1,L,{a:'l',rot:90,size}); }
+  }
+  // ---- walls: light grey fill, grey outlines, openings in the front (and rear) wall
+  const G={s:FS.gray,w:FS.lw};
+  const fOpen=R.openings.map(op=>[op.a,op.b]);
+  const rOpen=rear?[[rear.shL,W-rear.shR]]:[];
+  const segs=(x0,x1,holes)=>{ const out=[]; let p=x0; for(const [a,b] of holes){ if(a>p) out.push([p,a]); p=Math.max(p,b); } if(p<x1) out.push([p,x1]); return out; };
+  const sdx=sideD?(I.s90==='L'?'L':'R'):null;
+  const sOpen=sideD?[[sideD.sb,D-sideD.sf]]:[];
+  // fills
+  for(const [a,b] of segs(-t,W+t,rOpen.map(([a,b])=>[a,b]))) wr(a,-t,b-a,t,{s:null,f:236,w:0});
+  for(const [a,b] of segs(-t,W+t,fOpen)) wr(a,D,b-a,t,{s:null,f:236,w:0});
+  for(const side of ['L','R']){ const x=side==='L'?-t:W; for(const [a,b] of segs(0,D,sdx===side?sOpen:[])) wr(x,a,t,b-a,{s:null,f:236,w:0}); }
+  // outlines
+  for(const [a,b] of segs(0,W,rOpen)) wl(a,0,b,0,G);
+  for(const [a,b] of segs(-t,W+t,rOpen)) wl(a,-t,b,-t,G);
+  for(const [a,b] of rOpen){ wl(a,-t,a,0,G); wl(b,-t,b,0,G); wl(a,0,b,0,{...G,d:[2,1.2]}); }
+  for(const [a,b] of segs(0,W,fOpen)) wl(a,D,b,D,G);
+  for(const [a,b] of segs(-t,W+t,fOpen)) wl(a,D+t,b,D+t,G);
+  for(const [a,b] of fOpen){ wl(a,D,a,D+t,G); wl(b,D,b,D+t,G); wl(a,D,b,D,{...G,d:[2,1.2]}); }
+  for(const side of ['L','R']){ const xi=side==='L'?0:W, xo=side==='L'?-t:W+t, h=sdx===side?sOpen:[];
+    for(const [a,b] of segs(0,D,h)) wl(xi,a,xi,b,G);
+    for(const [a,b] of segs(-t,D+t,h)) wl(xo,a,xo,b,G);
+    for(const [a,b] of h){ wl(xi,a,xo,a,G); wl(xi,b,xo,b,G); wl(xi,a,xi,b,{...G,d:[2,1.2]}); } }
+  // shoulders to be cut: hatched
+  R.openings.forEach(op=>{ for(const [a,b] of [[op.a-op.cutA,op.a],[op.b,op.b+op.cutB]]) if(b-a>0){
+    wr(a,D,b-a,t,{s:0,f:null,w:FS.dw}); for(let x=a;x<b+t;x+=40){ const x1=Math.max(a,x-t), y1=D+(x-x1), x2=Math.min(b,x); wl(x2,D+(x-x2),x1,y1,{w:FS.dw}); } } });
+  if(R.beam){ wr(R.beam.x,0,R.beam.w,D,{s:0,w:FS.dw,d:[3,1.5]}); }
+  // ---- lifts
+  const cwDims=[];
+  R.lifts.forEach(({o,x0},li)=>{
+    const cx=x0+o.carL, cy=o.cy, midY=cy+o.extD/2, HW=o.I.W, o1=x0+o.o1, c=o.clear;
+    // car: exterior + interior
+    wr(cx,cy,o.extW,o.extD,{w:0.3});
+    const ix=cx+(o.extW-o.iw)/2, iy=cy+(o.extD-o.id);
+    wr(ix,iy,o.iw,o.id,{w:FS.dw});
+    // car frame (sling) crossing the car at the rail line, NF
+    if(o.L==='NF'){ const r1=cx-o.railOff, r2=cx+o.extW+o.railOff;
+      wr(r1+20,midY-70,r2-r1-40,140,{w:FS.dw}); wl(r1-60,midY,r2+60,midY,{w:FS.dw,d:[4,1,0.6,1]}); }
+    // doors (front + optional rear): car door 30+30+90, landing door 90 (Felesa front zone), panels open, stacked
+    const doorSet=(oo,yCarF,dir,legL,legR,dt,dd)=>{ // dir +1: towards the front (y grows), -1: rear
+      const yC=yCarF+dir*60, yL=yCarF+dir*P.doorZone.carDoor, yF=yL+dir*P.doorZone.landDoor;
+      const lanes=dt==='T3'?3:dt==='C'?1:2;
+      const lane=(y0,y1)=>{ const a=Math.min(y0,y1), b=Math.max(y0,y1), h=(b-a-10)/lanes, R_=dd==='R';
+        // track: the full travel of the door, opening + stacking zone
+        const st=dt==='C'? c/2 : c*(lanes-1)/lanes; wr(R_||dt==='C'? oo-(dt==='C'?st:0)-20 : oo-st-20, a+2, c+st+40+(dt==='C'?st:0), 4,{w:FS.dw});
+        for(let i=0;i<lanes;i++){ const ya=a+8+i*h, yb=ya+h-3;
+          if(dt==='C'){ wr(oo-15,ya,c/2+20,yb-ya,{w:FS.dw}); wr(oo+c/2-5,ya,c/2+20,yb-ya,{w:FS.dw}); break; }
+          const k=R_? lanes-1-i : i, pw=c/lanes+30, xa=oo+k*c/lanes-15;            // lane next to the landing = leading panel
+          wr(xa,ya,pw,yb-ya,{w:FS.dw}); wl(xa+6,ya+(yb-ya)/2,xa+pw-6,ya+(yb-ya)/2,{w:FS.dw*0.8}); } };
+      lane(yC,yL); lane(yL,yF);
+      // landing frames: L profile, face on the landing side of the landing door
+      for(const [edge,leg,s] of [[oo,legL,-1],[oo+c,legR,1]]){ const u=v=>edge+s*v;
+        wp([[u(0),yF+dir*50],[u(leg-10),yF+dir*50],[u(leg-10),yF],[u(60),yF],[u(60),yF-dir*40],[u(30),yF-dir*40],[u(30),yL],[u(0),yL]],{w:FS.lw}); }
+      return {yF};
+    };
+    const fr=doorSet(o1,cy+o.extD,1,o.legL,o.legR,o.dt,o.doorDir);
+    if(rear&&li===0){ const ro1=rear.o1; doorSet(ro1,cy,-1,Math.min(P.jamb,rear.jl),Math.min(P.jamb,rear.jr),o.dt,o.doorDir); }
+    // rails + counterweight
+    const tRail=(xf,yc,dir)=>{ wr(dir>0?xf-70:xf,yc-8,70,16,{s:0,f:90,w:FS.dw}); wr(dir>0?xf-80:xf+70,yc-40,10,80,{s:0,f:90,w:FS.dw});
+      wr(dir>0?xf-150:xf+80,yc-55,70,110,{w:FS.dw}); };                       // rail blade + foot + bracket
+    const tRailY=(x,yf,dir)=>{ wr(x-8,dir>0?yf-70:yf,16,70,{s:0,f:90,w:FS.dw}); wr(x-40,dir>0?yf-80:yf+70,80,10,{s:0,f:90,w:FS.dw}); };
+    if(o.L==='NF'){
+      const r1=cx-o.railOff, r2=cx+o.extW+o.railOff;
+      tRail(r1,midY,1); tRail(r2,midY,-1);
+      wr(r1-10,midY-110,40,220,{w:FS.dw}); wr(r2-30,midY-110,40,220,{w:FS.dw});           // guide shoes
+      const cwX = o.side==='L'? Math.max(x0+75, r1-190) : Math.min(x0+HW-75, r2+190);
+      const yb=Math.min(D-430,D-60), yt=Math.max(60,yb-o.dbgCwt);
+      tRailY(cwX,yt,-1); tRailY(cwX,yb,1);
+      wr(cwX-70,yt+80,140,yb-yt-160,{w:FS.lw}); wr(cwX-50,yt+110,100,yb-yt-220,{w:FS.dw});
+      for(let y=yt+110+(yb-yt-220)/4;y<yb-110-1;y+=(yb-yt-220)/4) wl(cwX-50,y,cwX+50,y,{w:FS.dw});
+      wl(cwX,yt-60,cwX,yb+60,{w:FS.dw,d:[4,1,0.6,1]});
+      cwDims.push({side:o.side,yt,yb,mid:midY,v:o.dbgCwt,x:cwX});
+    } else {
+      const y1=midY-o.dbgCar/2, y2=midY+o.dbgCar/2, rx=x0+(o.side==='L'?250:HW-250), cwX=x0+(o.side==='L'?90:HW-90);
+      tRailY(rx,y1,-1); tRailY(rx,y2,1);
+      const c1=midY-o.dbgCwt/2, c2=midY+o.dbgCwt/2; tRailY(cwX,c1,-1); tRailY(cwX,c2,1);
+      wr(cwX-55,y1+80,110,o.dbgCar-160,{w:FS.lw}); wr(cwX-38,y1+110,76,o.dbgCar-220,{w:FS.dw});
+      wr(Math.min(rx,cx)-40,midY-o.dbgCar/2+60,Math.abs(cx-rx)+80,o.dbgCar-120,{w:FS.dw});
+      cwDims.push({side:o.side,rs:true,y1,y2,c1,c2,v:o.dbgCwt,vc:o.dbgCar,x:rx,xc:cwX});
+    }
+    // car texts: load/persons, inner width, inner depth, front panels
+    tx(X(cx+o.extW/2),Y(cy+o.extD*0.36),`${o.q} kg  ${o.persons} P.`,{});
+    const yIw=Y(iy)+6; hchain([X(ix),X(ix+o.iw)],yIw,[String(o.iw)],null);
+    vchain([Y(iy),Y(iy+o.id)],X(ix+o.iw*0.72),[String(o.id)],null);
+    const yPan=Y(iy+o.id)-4.5; hchain([X(ix),X(o1),X(o1+c),X(ix+o.iw)],yPan,[o1-ix>0?String(Math.round(o1-ix)):null,String(c),ix+o.iw-o1-c>0?String(Math.round(ix+o.iw-o1-c)):null],Y(iy+o.id));
+    // floors served + entry arrow, in the opening
+    const n=+I.stops||2, fl=n<=10? Array.from({length:n},(_,i)=>i).join(',') : `0-${n-1}`;
+    const ax=X(o1+c/2), ay=Y(D)+Math.max(5.5,t*k*0.8)+1.5;
+    const lw2=tx(ax-2,ay,fl,{a:'r',size:FS.txt+1});
+    poly([[ax+1.6,ay-4],[ax+3.6,ay-1.8],[ax+2.4,ay-1.8],[ax+2.4,ay+0.2],[ax+0.8,ay+0.2],[ax+0.8,ay-1.8],[ax-0.4,ay-1.8]],{s:null,f:0,w:0});
+    if(rear&&li===0){ const rx2=X(rear.o1+c/2), ry=Y(0)-Math.max(5.5,t*k*0.8)+1.5;
+      poly([[rx2+1.6,ry+0.6],[rx2+3.6,ry-1.6],[rx2+2.4,ry-1.6],[rx2+2.4,ry-3.6],[rx2+0.8,ry-3.6],[rx2+0.8,ry-1.6],[rx2-0.4,ry-1.6]],{s:null,f:0,w:0}); }
+  });
+  // ---- top chains
+  const wTop=Y(-t);
+  const row1=[], lab1=[], row2=[], lab2=[];
+  R.lifts.forEach(({o,x0},i)=>{ const cx=x0+o.carL, HW=o.I.W;
+    if(o.L==='NF'){ const r1=cx-o.railOff, r2=cx+o.extW+o.railOff;
+      row1.push(x0,r1,r2); lab1.push(String(Math.round(r1-x0)),`DBG: ${o.dbgCar}`,String(Math.round(x0+HW-r2)));
+      const sp=o.side==='L'? [x0, ...(r1-x0>260?[r1-190]:[]), r1] : [r2, ...(x0+HW-r2>260?[r2+190]:[]), x0+HW];
+      const spl=sp.slice(1).map((p,j)=>String(Math.round(p-sp[j])));
+      if(o.side==='L'){ row2.push(...sp,cx,cx+o.extW,r2); lab2.push(...spl,String(Math.round(o.railOff)),`Car width: ${o.extW}`,String(Math.round(o.railOff)),null); }
+      else { row2.push(r1,cx,cx+o.extW,...sp); lab2.push(String(Math.round(o.railOff)),`Car width: ${o.extW}`,String(Math.round(o.railOff)),...spl,null); }
+    } else { row1.push(x0,cx,cx+o.extW); lab1.push(String(Math.round(cx-x0)),`Car width ext.: ${o.extW}`,String(Math.round(x0+HW-cx-o.extW))); }
+    row1.push(x0+HW); if(i<R.lifts.length-1){ lab1.push(String(R.beam.w)); }
+  });
+  { // dedupe consecutive equal points
+    const dd=(pts,labs)=>{ const p=[pts[0]], l=[]; for(let i=1;i<pts.length;i++){ if(Math.abs(pts[i]-p[p.length-1])<0.5){ continue; } p.push(pts[i]); l.push(labs[i-1]); } return [p,l]; };
+    const [p1,l1]=dd(row1,lab1); const yR1=wTop-(rear?16:10)-6, yR2=yR1+6;
+    hchain(p1.map(X),yR1,l1,wTop-1);
+    if(row2.length){ const [p2,l2]=dd(row2,lab2); hchain(p2.map(X),yR2,l2,wTop-1); }
+  }
+  // ---- bottom chains: frames + clear opening / shoulders + opening / shaft width
+  const wBot=Y(D+t);
+  const yB1=wBot+(Math.max(5.5,t*k*0.8)>t*k-2?6:4)+3, yB2=yB1+6.5, yB3=yB2+6.5;
+  { const p=[], l=[];
+    R.lifts.forEach(({o,x0})=>{ const o1=x0+o.o1; p.push(o1-o.legL,o1,o1+o.clear,o1+o.clear+o.legR); l.push(String(o.legL),`Clear opening: ${o.clear}`,String(o.legR),null); });
+    l.pop(); hchain(p.map(X),yB1,l,Y(D)+1);
+    const q=[0], m=[];
+    R.openings.forEach((op,i)=>{ if(i===0) m.push(String(op.a)); else m.push(String(op.a-q[q.length-1])); q.push(op.a,op.b); m.push(String(op.b-op.a)); });
+    q.push(W); m.push(String(W-R.openings[R.openings.length-1].b));
+    hchain(q.map(X),yB2,m,q.map((x,i)=>i===0||i===q.length-1? Y(D+t)+1 : Y(D+t)+0.5));
+    hchain([X(0),X(W)],yB3,[`Shaft width: ${W}`],null);
+    ln(X(0),Y(D+t)+1,X(0),yB3+1.2,{w:FS.dw}); ln(X(W),Y(D+t)+1,X(W),yB3+1.2,{w:FS.dw}); }
+  // ---- side chains: CWT DBG on the counterweight side, car/shaft depth on the other (or outside the CWT on the right)
+  const xL=X(-t), xR=X(W+t);
+  let rUsed=0, lUsed=0;
+  for(const cd of cwDims){ const L=cd.side==='L', s=L?-1:1, base=L?xL:xR;
+    if(!cd.rs){
+      const xi=base+s*7, xo=base+s*13;
+      vchain([Y(cd.yt),Y(cd.mid),Y(cd.yb)],xi,[String(Math.round(cd.mid-cd.yt)),String(Math.round(cd.yb-cd.mid))],X(cd.x)+s*2);
+      vchain([Y(0),Y(cd.yt),Y(cd.yb),Y(D)],xo,[String(Math.round(cd.yt)),`DBG: ${cd.v}`,String(Math.round(D-cd.yb))],[base+s*1,X(cd.x)+s*2,X(cd.x)+s*2,base+s*1]);
+    } else {
+      const xi=base+s*7, xo=base+s*13;
+      vchain([Y(0),Y(cd.y1),Y(cd.y2),Y(D)],xi,[String(Math.round(cd.y1)),`DBG CAR: ${cd.vc}`,String(Math.round(D-cd.y2))],[base+s*1,X(cd.x)+s*2,X(cd.x)+s*2,base+s*1]);
+      vchain([Y(0),Y(cd.c1),Y(cd.c2),Y(D)],xo,[String(Math.round(cd.c1)),`DBG CTW: ${cd.v}`,String(Math.round(D-cd.c2))],[base+s*1,X(cd.xc)+s*2,X(cd.xc)+s*2,base+s*1]);
+    }
+    if(L) lUsed=14; else rUsed=14; }
+  { const useR = o0.side==='L' || (cwtL&&cwtR), s=useR?1:-1, wallE=useR?xR:xL, used=useR?rUsed:lUsed, base=wallE+s*(used?used+3:0);
+    const lf=useR?R.lifts[R.lifts.length-1]:R.lifts[0], oL=lf.o, x0=lf.x0, cy=oL.cy, yc=cy+oL.extD, fg=D-yc, carE=X(useR? x0+oL.carL+oL.extW : x0+oL.carL);
+    // small front-zone chain (Felesa order): car front -> 30 -> 30 -> car door 90 -> landing door 90 -> wall
+    const fz=[...new Set([yc,yc+30,yc+60,yc+P.doorZone.carDoor,yc+P.doorZone.carDoor+P.doorZone.landDoor,D].map(Math.round))].sort((a,b)=>a-b);
+    const xf=base+s*3.5, fy=fz.map(Y);
+    ln(xf,fy[0],xf,fy[fy.length-1],{w:FS.dw}); fy.forEach(y=>ln(xf-1,y+1,xf+1,y-1,{w:FS.dw}));
+    for(let i=0;i<fz.length-1;i++){ const v=fz[i+1]-fz[i], ym=(fy[i]+fy[i+1])/2;
+      tx(xf-0.5-(i%2)*2.4,ym+fsTextW(v,FS.sm-1)/2,String(v),{a:'l',rot:90,size:FS.sm-1}); }
+    vchain([Y(0),Y(cy),Y(yc),Y(D)],base+s*9,[String(Math.round(cy)),`Car depth: ${oL.extD}`,String(Math.round(fg))],[wallE+s,carE+s*1.5,carE+s*1.5,wallE+s]);
+    vchain([Y(0),Y(D)],base+s*15,[`Shaft depth: ${D}`],[wallE+s,wallE+s]);
+  }
+  // ---- controller callout (Felesa wording)
+  if(single){ const ct=o0.ctrl.type;
+    if(ct==='frame'){ const o=o0, jx=o.ctrl.side==='L'? X(o.o1-o.legL/2) : X(o.o1+o.clear+o.legR/2), jy=Y(D)+1;
+      const tx0=o.ctrl.side==='L'? X(0)-4 : X(W)+4, ty=yB3+9;
+      ln(jx,jy,tx0,ty-3,{w:FS.dw}); arrow(jx,jy,(jx-tx0)/Math.hypot(jx-tx0,jy-ty+3),(jy-ty+3)/Math.hypot(jx-tx0,jy-ty+3));
+      const a=o.ctrl.side==='L'?'r':'l';
+      tx(tx0,ty,'CONTROLLER',{a,u:true}); tx(tx0,ty+4.2,'CABINET IN',{a}); tx(tx0,ty+8.4,'DOOR FRAME',{a}); tx(tx0,ty+12.6,'LAST FLOOR',{a});
+    } else {
+      const big=ct==='big', left=I.SL>=I.SR, bw=big?24:12, bh=big?13:9;
+      const tw0=fsTextW('CONTROLLER CABINET',FS.txt);
+      const bx= left? Math.max(X(-t)-6-bw, pg.fl+3+tw0-bw) : Math.min(X(W+t)+6, pg.fr-3-tw0), by=yB3+5;
+      poly([[bx,by],[bx+bw,by],[bx+bw,by+bh],[bx,by+bh]],{w:FS.lw});
+      // 3m FROM SHAFT: diagonal from the cabinet to the shaft corner
+      const cxs=left?X(-t):X(W+t), cys=Y(D+t), bxs=left?bx+bw:bx;
+      ln(bxs,by,cxs,cys,{w:FS.dw}); arrow(cxs,cys,(cxs-bxs)/Math.hypot(cxs-bxs,cys-by),(cys-by)/Math.hypot(cxs-bxs,cys-by)); arrow(bxs,by,(bxs-cxs)/Math.hypot(cxs-bxs,cys-by),(by-cys)/Math.hypot(cxs-bxs,cys-by));
+      const ang=Math.atan2(-(cys-by),cxs-bxs)*180/Math.PI;
+      tx((bxs+cxs)/2+(left?-1.2:1.2),(by+cys)/2-1,'3m FROM SHAFT',{rot:left?ang:ang+180,size:FS.sm});
+      const ta=left?'r':'l', tx0=left?bx+bw:bx, ty=by+bh+4.5;
+      tx(tx0,ty,'CONTROLLER CABINET',{a:ta,u:true}); tx(tx0,ty+4.2,'PRIMED',{a:ta}); tx(tx0,ty+8.4,big?'450X250X2000':'160X150X2000',{a:ta}); tx(tx0,ty+12.6,'LAST FLOOR',{a:ta});
+    }
+  }
+  // ---- frame + title block (same grid as the Felesa sheet; our own name in it)
+  const F={l:pg.fl,r:pg.fr,t:pg.ft,b:pg.fb}, tb=F.b-FS.tb;
+  poly([[F.l,F.t],[F.r,F.t],[F.r,F.b],[F.l,F.b]],{w:0.35});
+  const xA=F.l+92, xB=F.r-37;
+  ln(F.l,tb,F.r,tb,{w:0.35}); ln(xA,tb,xA,F.b,{w:0.35}); ln(xB,tb,xB,F.b,{w:0.35});
+  // revision table
+  const rh=(F.b-4.5-tb-3)/6, cE=F.l+4, cD=F.l+18, cN=F.l+25;
+  for(let i=1;i<=6;i++) ln(F.l,tb+3+rh*i,xA,tb+3+rh*i,{w:FS.dw});
+  ln(cE,tb+3,cE,F.b-4.5,{w:FS.dw}); ln(cD,tb+3,cD,F.b-4.5,{w:FS.dw}); ln(cN,tb+3,cN,F.b-4.5,{w:FS.dw});
+  ['4','3','2','1','0'].forEach((s,i)=>tx(F.l+1,tb+3+rh*(i+1)-1,s,{a:'l',size:FS.sm}));
+  const today=new Date(), dstr=`${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getFullYear()).slice(2)}`;
+  tx(cE+0.8,tb+3+rh*5-1,dstr,{a:'l',size:FS.sm}); tx(cD+0.8,tb+3+rh*5-1,'IL',{a:'l',size:FS.sm}); tx(cN+1,tb+3+rh*5-1,'Preliminary drawing',{a:'l',size:FS.sm});
+  tx(F.l+0.6,tb+3+rh*6-1,'Ed',{a:'l',size:FS.sm}); tx(cE+1,tb+3+rh*6-1,'Date',{a:'l',size:FS.sm}); tx(cD+0.6,tb+3+rh*6-1,'Name',{a:'l',size:FS.sm-1.5}); tx((cN+xA)/2,tb+3+rh*6-1,'Modification',{size:FS.sm});
+  ln(F.l,F.b-4.5,xA,F.b-4.5,{w:FS.dw}); tx((F.l+xA)/2,F.b-1.2,'DRAW',{size:FS.sm});
+  // middle: client, reference, sheet name
+  const xM=xA+16; ln(xM,tb,xM,tb+12,{w:FS.dw}); ln(xA,tb+12,xB,tb+12,{w:FS.dw}); ln(xA,F.b-4.5,F.r,F.b-4.5,{w:FS.dw});
+  tx(xA+0.8,tb+3,'Vº Bº:',{a:'l',size:FS.sm-1});
+  tx((xM+xB)/2,tb+8,'IDAN LIFTS',{size:FS.txt+2});
+  const ref=(meta.project||'').replace(/[^\x20-\x7E]/g,'').trim().toUpperCase()||'-';
+  tx((xA+xB)/2,tb+17.5,`REF.: ${ref}`.slice(0,48),{size:FS.sm+0.5,hs:0.95});
+  tx((xA+xB)/2,tb+27,'SHAFT',{size:FS.txt+3,hs:0.95});
+  // right: our block in place of the manufacturer logo, drawing number, scale / edition
+  tx((xB+F.r)/2,tb+6.5,'IDAN LIFTS',{size:FS.txt+5,b:true,hs:0.9});
+  tx((xB+F.r)/2,tb+11,'LIFT SHAFT CALCULATOR',{size:FS.sm-2,hs:0.9});
+  ln(xB,tb+14,F.r,tb+14,{w:FS.dw});
+  tx((xB+F.r)/2,tb+23,meta.number||'PRELIMINARY',{size:FS.txt+3,hs:0.9});
+  ln(F.r-10,F.b-4.5,F.r-10,F.b,{w:FS.dw});
+  tx(xB+1,F.b-1.2,`Scale: 1:${den}`,{a:'l',size:FS.sm}); tx(F.r-5,F.b-1.2,'Ed 0',{size:FS.sm});
+  return {w:pg.pw,h:pg.ph,land,items:it,den};
+}
+function felesaSVG(sh){
+  const g=v=>v==null?'none':`rgb(${v},${v},${v})`, out=[];
+  for(const e of sh.items){
+    if(e.t==='p'){ const d=e.pts.map((p,i)=>`${i?'L':'M'}${p[0].toFixed(3)} ${p[1].toFixed(3)}`).join('')+(e.close?'Z':'');
+      out.push(`<path d="${d}" fill="${g(e.f)}" stroke="${e.s==null||!e.w?'none':g(e.s)}" stroke-width="${e.w}" ${e.d?`stroke-dasharray="${e.d.join(' ')}"`:''} stroke-linejoin="round"/>`); }
+    else { const fsz=e.size*0.3528, esc=e.str.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      out.push(`<g transform="translate(${e.x.toFixed(3)} ${e.y.toFixed(3)}) rotate(${-e.rot}) scale(${e.hs} 1)"><text x="0" y="0" font-size="${fsz.toFixed(3)}" font-family="Helvetica, Arial, sans-serif" ${e.b?'font-weight="700"':''} fill="#000">${esc}</text>${e.u?`<line x1="0" y1="${(fsz*0.18).toFixed(3)}" x2="${(e.w/e.hs).toFixed(3)}" y2="${(fsz*0.18).toFixed(3)}" stroke="#000" stroke-width="0.2"/>`:''}</g>`); }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sh.w} ${sh.h}" width="${sh.w}mm" height="${sh.h}mm" style="background:#fff"><rect width="${sh.w}" height="${sh.h}" fill="#fff"/>${out.join('')}</svg>`;
+}
+function felesaPDF(doc, sh){
+  for(const e of sh.items){
+    if(e.t==='p'){
+      if(e.pts.length<2) continue;
+      const fill=e.f!=null, stroke=e.s!=null&&e.w>0;
+      if(!fill&&!stroke) continue;
+      if(stroke){ doc.setDrawColor(e.s); doc.setLineWidth(e.w); doc.setLineDashPattern(e.d||[],0); }
+      if(fill) doc.setFillColor(e.f);
+      const [x0,y0]=e.pts[0], rel=e.pts.slice(1).map((p,i)=>[p[0]-e.pts[i][0],p[1]-e.pts[i][1]]);
+      doc.lines(rel,x0,y0,[1,1],fill&&stroke?'FD':fill?'F':'S',e.close);
+      if(e.d) doc.setLineDashPattern([],0);
+    } else {
+      doc.setFont('helvetica',e.b?'bold':'normal'); doc.setFontSize(e.size); doc.setTextColor(0);
+      doc.text(e.str,e.x,e.y,{angle:e.rot,horizontalScale:e.hs});
+      if(e.u){ const fsz=e.size*0.3528; doc.setDrawColor(0); doc.setLineWidth(0.2); doc.line(e.x,e.y+fsz*0.18,e.x+e.w,e.y+fsz*0.18); }
+    }
+  }
 }
 /* ---------- screen 1: measurement form -> request, plan, cutting report, Felesa order ---------- */
 // Measurement form = the existing paper form ("טופס מדידה ראשונית"): per floor A..G + heights + flooring,
