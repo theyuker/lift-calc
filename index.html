@@ -525,6 +525,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
   <details class="opt lite-opt"><summary>הגדרות נוספות <span class="val" id="optv">הכול על מקסימום</span></summary><div class="lite-grid">
     <label>מספר נוסעים<select id="PS"><option value="">מקסימום אפשרי</option></select></label>
     <label>פתח אור<select id="CL"><option value="">מקסימלי</option><option>700</option><option>750</option><option>800</option><option>900</option><option>1000</option><option>1100</option></select></label>
+    <label>סוג מעלית<select id="LAY"><option value="">נורמל פריים בלבד</option><option value="rs">לאפשר רוגזק</option></select></label>
     <label>סוג דלת<select id="DT"><option value="auto">הטוב ביותר</option><option value="T2">טלסקופית 2</option><option value="T3">טלסקופית 3</option><option value="C">מרכזית</option></select></label>
     <label>כיוון פתיחה<select id="DIR"><option value="auto">הטוב ביותר</option><option value="R">לימין</option><option value="L">לשמאל</option></select></label>
     <label>מספר תחנות<input id="ST" type="number" inputmode="numeric" placeholder="5"></label>
@@ -602,7 +603,7 @@ function solve(I){
   let opts=[], diag=[];
   // the clearance mode is exactly what the menu says: ideal = 310/140, absolute = 280/110, custom = the entered values
   const modes = I.mx==='abs'? ['x'] : ['n'];
-  const layouts = I.en==='90' ? ['RS'] : ['NF','RS'];
+  const layouts = I.en==='90' ? ['RS'] : I.rs ? ['NF','RS'] : ['NF'];   // rucksack only when asked for (or the 90° entrance, which needs it)
   const want = I.cw||I.cd;
   for(const L of layouts) for(const side of ['L','R']) for(const mode of modes){
     if(I.en==='90' && side===I.s90) continue;      // rails on the wall opposite the side entrance
@@ -629,10 +630,10 @@ function solve(I){
         cands.push({iw:g.iw,id,kind:'max'});
       }
       for(const s of STD){ const e=carEnvelope(I,L,mode,s.q); if(e && s.w<=e.iw && s.d<=e.id) cands.push({iw:s.w,id:s.d,kind:'std',std:s}); }
-      // standard DBG (6 / 8 persons): the standard car width, as deep as the shaft and the load allow
-      if(I.sd && L==='NF') for(const s of STD.filter(s=>DBG_STD[personsFor(s.q,s.w*s.d/1e6)])){ const e=carEnvelope(I,L,mode,s.q); if(!e||s.w>e.iw) continue;
-        const id=Math.min(e.id, fl10(maxAreaFor(s.q)*1e6/s.w)); if(id>=900) cands.push({iw:s.w,id,kind:'sdbg',std:s}); }
     }
+    // standard DBG (6 / 8 persons): the standard car width, the given depth or as deep as the shaft and the load allow
+    if(I.sd && L==='NF') for(const s of STD.filter(s=>DBG_STD[personsFor(s.q,s.w*s.d/1e6)])){ const e=carEnvelope(I,L,mode,s.q); if(!e||s.w>e.iw||(I.cw&&I.cw!==s.w)) continue;
+      const id=I.cd||Math.min(e.id, fl10(maxAreaFor(s.q)*1e6/s.w)); if(id>=900 && id<=e.id) cands.push({iw:s.w,id,kind:'sdbg',std:s}); }
     for(const c of cands){ const o=build(I,L,side,mode,c); if(o) opts.push(o); }
   }
   const m=new Map();
@@ -655,7 +656,7 @@ function solve(I){
 // constraints collide and how much each one would have to give — instead of only "no such car"
 function conflicts(I,opt={}){
   // returns {given:[...], fixes:[{t,why,set}]} — every fix is checked: applying its `set` gives a normal frame
-  if(I.en==='90' || I.sm==='duplex' || !(I.cw||I.cd||I.ps||I.sd)) return null;
+  if(I.en==='90' || I.sm==='duplex') return null;
   const k=P.NF.small, cust=I.mx==='custom', abs=I.mx==='abs';
   I={...I, mx:'custom', gc:cust?cwtOf(I,k,false):abs?k.cwtX:k.cwt, go:cust?othOf(I,k,false):abs?k.othX:k.oth};   // the clearances exactly as chosen in the menu
   const nf=J=>solve(J).list.some(o=>o.L==='NF');
@@ -687,6 +688,8 @@ function conflicts(I,opt={}){
   if(free.length){ const b=free.reduce((a,o)=>o.area>a.area?o:a);
     if(I.ps){ const m=Math.max(...free.map(o=>o.persons)); if(m<I.ps) fixes.push({t:`${m} נוסעים`, why:`המקסימום עם החיזוקים והמרווחים האלה`, set:{ps:m}}); }
     else fixes.push({t:`תא ${b.iw}×${b.id}`, why:`הגדול שנכנס (${b.persons} נוסעים)`, set:{cw:b.iw,cd:b.id}}); }
+  if(!given.length || (!I.cw&&!I.cd&&!I.ps&&!I.sd)) given.unshift('תא מקסימלי');
+  if(!I.rs && solve({...I,rs:true}).list.some(o=>o.L==='RS')) fixes.push({t:'לעבור לרוגזק', why:'רק אם אין ברירה — אפשרות משנית', set:{rs:true}});
   if(I.sd){ given.push('DBG סטנדרטי'); const J={...I,sd:false}; if(nf(J)) fixes.push({t:'לוותר על DBG סטנדרטי', why:'DBG לפי הקבינה', set:{sd:false}}); }
   return {given, atLimit:abs && !opt.lite, fixes, title:I.sd?'כדי לשמור DBG סטנדרטי — האילוצים מתנגשים':''};
 }
@@ -962,6 +965,18 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -2040,7 +2055,7 @@ const $=id=>document.getElementById(id);
 const mcStyle=o=>`--mc:var(${MODELS[modelKey(o)].v})`;
 const ICON={prev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
   next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>'};
-const IDS=['W','D','SL','SR','PS','CL','DT','DIR','ST','CW','CD','FP','CG','FPV','CGV','MX','GC','GO','BK','FL0'], OPT_IDS=IDS.slice(4);   // shaft size and shoulders always start empty
+const IDS=['W','D','SL','SR','PS','CL','DT','DIR','ST','CW','CD','FP','CG','FPV','CGV','MX','GC','GO','BK','FL0','LAY'], OPT_IDS=IDS.slice(4);   // shaft size and shoulders always start empty
 const num=id=>{ const v=$(id).value.trim(); return v===''?null:+v; };
 let LIST=[], SEL=0;
 function pills(o){
@@ -2052,7 +2067,7 @@ function pills(o){
 }
 function read(){
   return {W:num('W')||0, D:num('D')||0, SL:num('SL')||0, SR:num('SR')||0, stops:num('ST')||P.stops, fl0:num('FL0')||0, dt:$('DT').value, dir:$('DIR').value,
-    en:'1', fp:$('FP').value, fpv:+$('FPV').value, cg:$('CG').value, cgv:+$('CGV').value, bk:num('BK'), mxl:$('MX').value, gcl:num('GC'), gol:num('GO'), minClr:$('MX').value==='min' || ($('MX').value==='custom' && ((num('GC')??300)<300 || (num('GO')??120)<120)), ct:'small', s90:'R', sm:'single', clear:+$('CL').value||null, ex:true, mx:'ideal', ps:+$('PS').value||null, cw:num('CW'), cd:num('CD')};
+    en:'1', fp:$('FP').value, fpv:+$('FPV').value, cg:$('CG').value, cgv:+$('CGV').value, bk:num('BK'), rs:$('LAY').value==='rs', mxl:$('MX').value, gcl:num('GC'), gol:num('GO'), minClr:$('MX').value==='min' || ($('MX').value==='custom' && ((num('GC')??300)<300 || (num('GO')??120)<120)), ct:'small', s90:'R', sm:'single', clear:+$('CL').value||null, ex:true, mx:'ideal', ps:+$('PS').value||null, cw:num('CW'), cd:num('CD')};
 }
 function optSummary(I){
   const t=[]; if(I.ps) t.push(`${I.ps} נוסעים`); if(I.clear) t.push(`פתח ${I.clear}`); if(I.dt!=='auto') t.push(dtName(I.dt));
@@ -2124,7 +2139,7 @@ document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey) && e.key.toLo
 $('f').addEventListener('input',()=>{ render(); clearTimeout(HT); HT=setTimeout(histSync,600); });
 $('out').addEventListener('click',e=>{ const b=e.target.closest('[data-fix]'); if(!b) return;   // conflict fix: put the value into the form
   histSync();
-  for(const [k,x] of Object.entries(JSON.parse(b.dataset.fix))) if(k!=='sd') $({mx:'MX',gc:'GC',go:'GO',bk:'BK',fp:'FP',fpv:'FPV',cw:'CW',cd:'CD',ps:'PS'}[k]).value=x;
+  for(const [k,x] of Object.entries(JSON.parse(b.dataset.fix))) if(k==='rs') $('LAY').value=x?'rs':''; else if(k!=='sd') $({mx:'MX',gc:'GC',go:'GO',bk:'BK',fp:'FP',fpv:'FPV',cw:'CW',cd:'CD',ps:'PS'}[k]).value=x;
   render(); histSync(); }); $('f').addEventListener('submit',e=>e.preventDefault());
 render(); HCUR=fSnap();
 </script>

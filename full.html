@@ -674,6 +674,10 @@ input.calc{background:var(--surface-2);color:var(--muted)}
       <label>מקיר אחורי לגב הקבינה<input id="BK" type="number" inputmode="numeric" step="5" placeholder="50"></label>
       <p class="hint">ברירת מחדל 50. מספר גדול יותר מקטין את עומק הקבינה. תא בגודל קבוע שקצר מהמקסימום משאיר את העודף מאחור — אז מוצג גם המרווח בפועל. במעבר 180° לא בשימוש.</p>
     </div></details>
+    <details class="opt" id="o-rs"><summary>רוגזק <span class="val" data-for="rs"></span></summary><div>
+      <label class="chk"><input type="checkbox" id="RS">לאפשר רוגזק</label>
+      <p class="hint">ברירת המחדל: נורמל פריים בלבד. רוגזק רק כשאין נורמל פריים ובחרת בו כאן (או בכרטיס ההתנגשות). כניסה ב-90° תמיד רוגזק.</p>
+    </div></details>
     <details class="opt" id="o-sd"><summary>DBG סטנדרטי <span class="val" data-for="sd"></span></summary><div>
       <label class="chk"><input type="checkbox" id="SD">לשמור DBG סטנדרטי ב-6 ו-8 נוסעים</label>
       <p class="hint">6 נוסעים: קבינה 1150, משקולת 890. 8 נוסעים: 1250 / 1060. רוחב התא נשאר הסטנדרטי (1000 / 1100) והעומק לפי הפיר.</p>
@@ -826,7 +830,7 @@ function solve(I){
   let opts=[], diag=[];
   // the clearance mode is exactly what the menu says: ideal = 310/140, absolute = 280/110, custom = the entered values
   const modes = I.mx==='abs'? ['x'] : ['n'];
-  const layouts = I.en==='90' ? ['RS'] : ['NF','RS'];
+  const layouts = I.en==='90' ? ['RS'] : I.rs ? ['NF','RS'] : ['NF'];   // rucksack only when asked for (or the 90° entrance, which needs it)
   const want = I.cw||I.cd;
   for(const L of layouts) for(const side of ['L','R']) for(const mode of modes){
     if(I.en==='90' && side===I.s90) continue;      // rails on the wall opposite the side entrance
@@ -853,10 +857,10 @@ function solve(I){
         cands.push({iw:g.iw,id,kind:'max'});
       }
       for(const s of STD){ const e=carEnvelope(I,L,mode,s.q); if(e && s.w<=e.iw && s.d<=e.id) cands.push({iw:s.w,id:s.d,kind:'std',std:s}); }
-      // standard DBG (6 / 8 persons): the standard car width, as deep as the shaft and the load allow
-      if(I.sd && L==='NF') for(const s of STD.filter(s=>DBG_STD[personsFor(s.q,s.w*s.d/1e6)])){ const e=carEnvelope(I,L,mode,s.q); if(!e||s.w>e.iw) continue;
-        const id=Math.min(e.id, fl10(maxAreaFor(s.q)*1e6/s.w)); if(id>=900) cands.push({iw:s.w,id,kind:'sdbg',std:s}); }
     }
+    // standard DBG (6 / 8 persons): the standard car width, the given depth or as deep as the shaft and the load allow
+    if(I.sd && L==='NF') for(const s of STD.filter(s=>DBG_STD[personsFor(s.q,s.w*s.d/1e6)])){ const e=carEnvelope(I,L,mode,s.q); if(!e||s.w>e.iw||(I.cw&&I.cw!==s.w)) continue;
+      const id=I.cd||Math.min(e.id, fl10(maxAreaFor(s.q)*1e6/s.w)); if(id>=900 && id<=e.id) cands.push({iw:s.w,id,kind:'sdbg',std:s}); }
     for(const c of cands){ const o=build(I,L,side,mode,c); if(o) opts.push(o); }
   }
   const m=new Map();
@@ -879,7 +883,7 @@ function solve(I){
 // constraints collide and how much each one would have to give — instead of only "no such car"
 function conflicts(I,opt={}){
   // returns {given:[...], fixes:[{t,why,set}]} — every fix is checked: applying its `set` gives a normal frame
-  if(I.en==='90' || I.sm==='duplex' || !(I.cw||I.cd||I.ps||I.sd)) return null;
+  if(I.en==='90' || I.sm==='duplex') return null;
   const k=P.NF.small, cust=I.mx==='custom', abs=I.mx==='abs';
   I={...I, mx:'custom', gc:cust?cwtOf(I,k,false):abs?k.cwtX:k.cwt, go:cust?othOf(I,k,false):abs?k.othX:k.oth};   // the clearances exactly as chosen in the menu
   const nf=J=>solve(J).list.some(o=>o.L==='NF');
@@ -911,6 +915,8 @@ function conflicts(I,opt={}){
   if(free.length){ const b=free.reduce((a,o)=>o.area>a.area?o:a);
     if(I.ps){ const m=Math.max(...free.map(o=>o.persons)); if(m<I.ps) fixes.push({t:`${m} נוסעים`, why:`המקסימום עם החיזוקים והמרווחים האלה`, set:{ps:m}}); }
     else fixes.push({t:`תא ${b.iw}×${b.id}`, why:`הגדול שנכנס (${b.persons} נוסעים)`, set:{cw:b.iw,cd:b.id}}); }
+  if(!given.length || (!I.cw&&!I.cd&&!I.ps&&!I.sd)) given.unshift('תא מקסימלי');
+  if(!I.rs && solve({...I,rs:true}).list.some(o=>o.L==='RS')) fixes.push({t:'לעבור לרוגזק', why:'רק אם אין ברירה — אפשרות משנית', set:{rs:true}});
   if(I.sd){ given.push('DBG סטנדרטי'); const J={...I,sd:false}; if(nf(J)) fixes.push({t:'לוותר על DBG סטנדרטי', why:'DBG לפי הקבינה', set:{sd:false}}); }
   return {given, atLimit:abs && !opt.lite, fixes, title:I.sd?'כדי לשמור DBG סטנדרטי — האילוצים מתנגשים':''};
 }
@@ -1186,6 +1192,18 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -2661,7 +2679,7 @@ function read(){
   return {W:v('W'),D:v('D'),SL:v('SL'),SR:v('SR'),stops:numOrNull('ST')||P.stops, fl0:numOrNull('FL0')||0, dt:r('dt'), dir:$('DIR').value, en:r('en'), ct:$('CT').value,
     sm:r('sm'), openL:v('OL'), pillar:v('PIL'), beam:v('BM')||100,
     s90:$('S90').value, RL:numOrNull('RL'), RR:numOrNull('RR'), SF:numOrNull('SF'), SB:numOrNull('SB'),
-    clear:+$('CL').value||null, ex:true, mx:r('mx'), gc:numOrNull('GC'), go:numOrNull('GO'), fp:r('fp'), fpv:+$('FPV').value, cg:r('cg'), cgv:+$('CGV').value, bk:numOrNull('BK'), sd:$('SD').checked, ps:+$('PS').value||null, cw:numOrNull('CW'), cd:numOrNull('CD'), sides:{L:sideReq('L'),R:sideReq('R')}};
+    clear:+$('CL').value||null, ex:true, mx:r('mx'), gc:numOrNull('GC'), go:numOrNull('GO'), fp:r('fp'), fpv:+$('FPV').value, cg:r('cg'), cgv:+$('CGV').value, bk:numOrNull('BK'), sd:$('SD').checked, rs:$('RS').checked, ps:+$('PS').value||null, cw:numOrNull('CW'), cd:numOrNull('CD'), sides:{L:sideReq('L'),R:sideReq('R')}};
 }
 function setVals(I){
   const set=(k,txt,on)=>{ const e=document.querySelector(`.val[data-for="${k}"]`); e.textContent=txt; e.classList.toggle('set',on); };
@@ -2674,7 +2692,7 @@ function setVals(I){
   set('fp', I.fp==='custom'?`חזית ${I.fpv}`:{std:'סטנדרטי',out:'מחוץ לפיר',in:'בתוך הפיר'}[I.fp], I.fp!=='std');
   set('cg', I.cg==='custom'?`${I.cgv}`:{std:'סטנדרטי',mid:'35',min:'מצומצם 25'}[I.cg], I.cg!=='std');
   $('mxCustom').hidden=I.mx!=='custom'; $('fpCustom').hidden=I.fp!=='custom'; $('cgCustom').hidden=I.cg!=='custom';
-  $('fpvOut').innerHTML=fpHtml(I.fpv); set('bk', I.bk!=null?`${I.bk}`:'50', I.bk!=null); set('sd', I.sd?'פעיל':'כבוי', I.sd); $('cgvOut').textContent=`${I.cgv} מ"מ בכל צד`;
+  $('fpvOut').innerHTML=fpHtml(I.fpv); set('bk', I.bk!=null?`${I.bk}`:'50', I.bk!=null); set('sd', I.sd?'פעיל':'כבוי', I.sd); set('rs', I.rs?'מותר':'לא', I.rs); $('cgvOut').textContent=`${I.cgv} מ"מ בכל צד`;
   set('cs', I.cw||I.cd?`${I.cw??'מקס'}×${I.cd??'מקס'}`:'מקסימלי', !!(I.cw||I.cd));
   const dup=I.sm==='duplex'; $('dupwrap').hidden=!dup; $('o-en').hidden=dup; $('o-ps').hidden=dup; $('o-cs').hidden=dup;
   for(const p of ['L','R']){ const k=$(p+'K').value; $(p+'PS').hidden=k!=='ps'; $(p+'SZ').hidden=k!=='size'; }
@@ -2714,7 +2732,7 @@ function applyFix(set){   // full app: put a conflict fix into the form and reca
   const v=(id,x)=>{ $(id).value=x??''; }, r=(n,x)=>{ const e=document.querySelector(`input[name=${n}][value=${x}]`); if(e) e.checked=true; };
   for(const [k,x] of Object.entries(set)){
     if(k==='ps'&&x==null){ $('PS').value=''; continue; }
-    if(k==='mx'||k==='fp') r(k,x); else if(k==='sd') $('SD').checked=!!x; else v({gc:'GC',go:'GO',bk:'BK',fpv:'FPV',cw:'CW',cd:'CD',ps:'PS'}[k],x); }
+    if(k==='mx'||k==='fp') r(k,x); else if(k==='sd') $('SD').checked=!!x; else if(k==='rs') $('RS').checked=!!x; else v({gc:'GC',go:'GO',bk:'BK',fpv:'FPV',cw:'CW',cd:'CD',ps:'PS'}[k],x); }
   render(); histSync();
 }
 document.addEventListener('click',e=>{ const b=e.target.closest('[data-fix]'); if(b && $('out')?.contains(b)) applyFix(JSON.parse(b.dataset.fix)); });
