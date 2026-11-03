@@ -462,6 +462,22 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 .conf-g{display:flex;flex-wrap:wrap;gap:6px}
 .conf-g span{background:var(--surface);border-radius:99px;padding:3px 10px;font-size:12.5px;color:var(--ink-2)}
 .conf-g span.lim{color:var(--warn)}
+.trif{position:static;max-height:none;overflow:visible;display:block;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
+.tri-set{display:grid;gap:12px}
+.tri-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.tri-grid label{display:grid;gap:4px;font-size:13px;color:var(--ink-2)}
+.tri-rows{overflow-x:auto}
+.tri-rows table{border-collapse:separate;border-spacing:4px 4px;min-width:900px}
+.tri-rows th{font-size:11.5px;color:var(--muted);font-weight:600;text-align:center;vertical-align:bottom}
+.tri-rows input[type=number]{padding:6px 6px;font-size:13.5px;text-align:center;min-width:62px}
+.tri-btns{display:flex;flex-wrap:wrap;gap:8px}
+.tri-tbl{overflow-x:auto;margin-top:10px}
+.tri-tbl table{border-collapse:collapse;min-width:640px;width:100%}
+.tri-tbl th,.tri-tbl td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center;font-size:13px}
+.tri-tbl tr:nth-child(even) td{background:var(--surface-2)}
+.tri-tbl tr.off td{opacity:.5}
+.g{font-size:11.5px;font-weight:600;padding:0 4px;border-radius:6px}
+.g.ok{color:var(--ok)} .g.warn{color:var(--warn);background:var(--warn-soft)} .g.cut{color:var(--cut);background:var(--cut-soft)}
 .conf-g button{background:var(--surface);border:1.5px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:99px;padding:4px 12px;font-size:12.5px;color:var(--ink-2)}
 .conf-g button small{color:var(--muted);font-size:11px}
 .conf-g button.ok{border-color:var(--accent);color:var(--accent);font-weight:600}
@@ -1477,6 +1493,36 @@ function browserSave(name,data){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
 }
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 /* ---------- result model: one or two lifts in one shaft ---------- */
 // R = {W, D, I, lifts:[{o, x0}], openings:[{a,b,cutA,cutB}], beam:{x,w}|null, duplex:bool}
 function singleR(o){
@@ -1500,7 +1546,8 @@ function mirrorLift(o,I2){
     jl:o.jr, jr:o.jl, legL:o.legR, legR:o.legL, shGapL:o.shGapR, shGapR:o.shGapL, panL:o.panR, panR:o.panL,
     cuts:o.cuts.map(fl), frontCuts:o.frontCuts.map(fl), ctrl:{...o.ctrl, side:sw(o.ctrl.side)}, notes:o.notes};
 }
-function sizeTitle(R){ if(!R.duplex) return `${R.main.iw}×${R.main.id}`; const [a,b]=R.lifts.map(l=>l.o); return a.iw===b.iw&&a.id===b.id? `2 × ${a.iw}×${a.id}` : `${a.iw}×${a.id} + ${b.iw}×${b.id}`; }
+const beamsOf=R=>R.beams||(R.beam?[R.beam]:[]);   // duplex: one separation beam, triplex: two
+function sizeTitle(R){ if(R.triplex) return `3 × ${R.main.iw}×${R.main.id}`; if(!R.duplex) return `${R.main.iw}×${R.main.id}`; const [a,b]=R.lifts.map(l=>l.o); return a.iw===b.iw&&a.id===b.id? `2 × ${a.iw}×${a.id}` : `${a.iw}×${a.id} + ${b.iw}×${b.id}`; }
 const dTier=R=>R.lifts.reduce((t,{o})=>t+(o.L==='NF'?8:0)+(o.cuts.length?0:4)+(o.mode==='n'?2:0),0);
 function duplexPair(I,s,a,b){
   const fcA=k=>a.frontCuts.find(c=>c.side===k)?.mm||0, fcB=k=>b.frontCuts.find(c=>c.side===k)?.mm||0;
@@ -1604,7 +1651,7 @@ function drawPlan(R, opt={}){
     rect(a,D,b-a,t+90,C('podest'),`stroke="${C('podestLine')}" stroke-width="5"`);
     txt((a+b)/2,D+t+40,lang==='en'?'LANDING':'פודסט',{fs:sfs,c:C('podestLine')}); }
   s.push(`<rect x="0" y="0" width="${W}" height="${D}" fill="none" stroke="${C('ink')}" stroke-width="6"/>`);
-  if(R.beam){ rect(R.beam.x,0,R.beam.w,D,'none',`stroke="${C('muted')}" stroke-width="6" stroke-dasharray="30 20"`); txt(R.beam.x+R.beam.w/2,D*0.18,T.beam,{fs:sfs,c:C('muted'),rot:-90}); }
+  for(const bm of beamsOf(R)){ const RB={beam:bm}; rect(RB.beam.x,0,RB.beam.w,D,'none',`stroke="${C('muted')}" stroke-width="6" stroke-dasharray="30 20"`); txt(bm.x+bm.w/2,D*0.18,T.beam,{fs:sfs,c:C('muted'),rot:-90}); }
   // ---- lifts
   for(const {o,x0} of R.lifts){
     const mc=MC(o), cx=x0+o.carL, cy=o.cy, o1=x0+o.o1, op=R.openings[R.lifts.findIndex(l=>l.o===o)];
@@ -1683,7 +1730,7 @@ function drawPlan(R, opt={}){
   const topPts=[], topLab=[];
   R.lifts.forEach(({o,x0},i)=>{ const cx=x0+o.carL; let r1,r2; if(o.L==='NF'){ r1=cx-o.railOff; r2=cx+o.extW+o.railOff; } else { r1=cx; r2=cx+o.extW; }
     const mc=MC(o), cw={v:o.gapCwt,n:o.L==='NF'?T.cwt:T.rsSide,c:mc}, ot={v:o.gapOth,n:o.L==='NF'?T.single:T.rsFree,c:mc};
-    if(i>0){ topLab.push({v:R.beam.w,n:T.beam}); }
+    if(i>0){ topLab.push({v:beamsOf(R)[i-1]?.w||100,n:T.beam}); }
     topPts.push(x0,r1,r2); topLab.push(o.side==='L'?cw:ot,{v:o.L==='NF'?o.dbgCar:o.extW,n:o.L==='NF'?T.dbg:T.car},o.side==='L'?ot:cw);
     if(i===R.lifts.length-1) topPts.push(x0+o.I.W); else topPts.push(x0+o.I.W);
   });
@@ -1793,15 +1840,16 @@ function dataSheet(doc,R,project,he,T){
   sec(T('PROJECT','פרויקט'));
   row(T('Project / ref.','שם הפרויקט'), project||'-');
   sec(T('SHAFT','פיר'));
-  row(T(R.duplex?'Common shaft W × D':'Shaft W × D', R.duplex?'פיר משותף רוחב × עומק':'פיר רוחב × עומק'), `${R.W} × ${R.D}`+T(' mm',' מ"מ'));
-  if(!R.duplex) row(T('Shoulders left / right','כתפיים שמאל / ימין'), `${I.SL} / ${I.SR}`);
+  row(T(R.duplex||R.triplex?'Common shaft W × D':'Shaft W × D', R.duplex||R.triplex?'פיר משותף רוחב × עומק':'פיר רוחב × עומק'), `${R.W} × ${R.D}`+T(' mm',' מ"מ'));
+  if(!R.duplex&&!R.triplex) row(T('Shoulders left / right','כתפיים שמאל / ימין'), `${I.SL} / ${I.SR}`);
   row(T('Stops','תחנות'), String(I.stops));
   row(T('Floors','מספור קומות'), Array.from({length:I.stops},(_,i)=>i+(+I.fl0||0)).join(', '));   // numbers only: a minus sign inside Hebrew text flips
   if(R.duplex){ row(T('Pillar between openings','עמוד בין הפתחים'), mm(I.pillar)); row(T('Separation beam','קורה מפרידה'), mm(R.beam.w)); }
+  if(R.triplex){ row(T('Openings (common to all floors)','פתחים (משותף לכל הקומות)'), R.openings.map(op=>op.b-op.a).join(' / ')); row(T('Separation beams from the left wall','קורות מפרידות מהקיר השמאלי'), R.beams.map(b=>b.x).join(' / ')); }
   const dt={T2:T('2-panel telescopic','טלסקופית 2 כנפיים'),T3:T('3-panel telescopic','טלסקופית 3 כנפיים'),C:T('centre opening','פתיחה מרכזית')};
   let anyOut=false;
   R.lifts.forEach(({o},i)=>{
-    sec(R.duplex? T(i===0?'LIFT - LEFT':'LIFT - RIGHT', i===0?'מעלית שמאל':'מעלית ימין') : T('LIFT','מעלית'));
+    sec(R.triplex? T(['LIFT - LEFT','LIFT - MIDDLE','LIFT - RIGHT'][i], ['מעלית שמאל','מעלית אמצע','מעלית ימין'][i]) : R.duplex? T(i===0?'LIFT - LEFT':'LIFT - RIGHT', i===0?'מעלית שמאל':'מעלית ימין') : T('LIFT','מעלית'));
     row(T('Model / layout','דגם / סוג'), `${o.model} / ${o.L==='NF'?T('Normal frame','נורמל פריים'):T('Rucksack','רוגזק')}`);
     row(T('Load / persons','עומס / נוסעים'), T(`${o.q} kg / ${o.persons} persons`,`${o.q} ק"ג / ${o.persons} נוסעים`));
     row(T('Car internal W × D','תא פנים רוחב × עומק'), `${o.iw} × ${o.id}`+T(` mm - ${(o.iw*o.id/1e6).toFixed(2)} m²`,` מ"מ - ${(o.iw*o.id/1e6).toFixed(2)} מ"ר`));
@@ -1860,7 +1908,7 @@ function view3d(R, host){
   if(sd){ const a=mm(sd.sb), b=D-mm(sd.sf); box(T,H,a,concrete,sx,yc,a/2); box(T,H,D-b,concrete,sx,yc,(b+D)/2); }
   if(!(sd&&I.s90==='L')) box(T,H,D,concrete,-T/2,yc,D/2);
   if(!(sd&&I.s90==='R')) box(T,H,D,concrete,W+T/2,yc,D/2);
-  if(R.beam){ for(let k=0;k<n;k++) box(mm(R.beam.w),0.12,D,M(0x5d6b73,{m:0.3,r:0.5}),mm(R.beam.x+R.beam.w/2),k*FH+2.6,D/2); }
+  for(const bm of beamsOf(R)){ const R_={beam:bm}; for(let k=0;k<n;k++) box(mm(R_.beam.w),0.12,D,M(0x5d6b73,{m:0.3,r:0.5}),mm(bm.x+bm.w/2),k*FH+2.6,D/2); }
   const label=(txt,x,y,z)=>{ const c=document.createElement('canvas'); c.width=128;c.height=64; const g=c.getContext('2d'); g.fillStyle='#1d2a33'; g.fillRect(0,0,128,64); g.fillStyle='#fff'; g.font='bold 40px monospace'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(txt,64,34);
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c)})); sp.scale.set(0.34,0.17,1); sp.position.set(x,y,z); scene.add(sp); };
   for(const op of ops) box(op.b-op.a,PIT,T,front,(op.a+op.b)/2,-PIT/2,fz);
@@ -2078,7 +2126,7 @@ function felesaSheet(R, meta={}){
   // shoulders to be cut: hatched
   R.openings.forEach(op=>{ for(const [a,b] of [[op.a-op.cutA,op.a],[op.b,op.b+op.cutB]]) if(b-a>0){
     wr(a,D,b-a,t,{s:0,f:null,w:FS.dw}); for(let x=a;x<b+t;x+=40){ const x1=Math.max(a,x-t), y1=D+(x-x1), x2=Math.min(b,x); wl(x2,D+(x-x2),x1,y1,{w:FS.dw}); } } });
-  if(R.beam){ wr(R.beam.x,0,R.beam.w,D,{s:0,w:FS.dw,d:[3,1.5]}); }
+  for(const bm of (R.beams||(R.beam?[R.beam]:[]))) wr(bm.x,0,bm.w,D,{s:0,w:FS.dw,d:[3,1.5]});
   // ---- lifts
   const cwDims=[];
   R.lifts.forEach(({o,x0},li)=>{
@@ -2176,7 +2224,7 @@ function felesaSheet(R, meta={}){
       if(o.side==='L'){ row2.push(...sp,cx,cx+o.extW,r2); lab2.push(...spl,String(Math.round(o.railOff)),T('Car width: ','רוחב תא: ')+o.extW,String(Math.round(o.railOff)),null); }
       else { row2.push(r1,cx,cx+o.extW,...sp); lab2.push(String(Math.round(o.railOff)),T('Car width: ','רוחב תא: ')+o.extW,String(Math.round(o.railOff)),...spl,null); }
     } else { row1.push(x0,cx,cx+o.extW); lab1.push(String(Math.round(cx-x0)),T('Car width ext.: ','רוחב תא חוץ: ')+o.extW,String(Math.round(x0+HW-cx-o.extW))); }
-    row1.push(x0+HW); if(i<R.lifts.length-1){ lab1.push(String(R.beam.w)); }
+    row1.push(x0+HW); if(i<R.lifts.length-1){ lab1.push(String((R.beams||[R.beam])[i].w)); }
   });
   { // dedupe consecutive equal points
     const dd=(pts,labs)=>{ const p=[pts[0]], l=[]; for(let i=1;i<pts.length;i++){ if(Math.abs(pts[i]-p[p.length-1])<0.5){ continue; } p.push(pts[i]); l.push(labs[i-1]); } return [p,l]; };

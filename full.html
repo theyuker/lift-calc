@@ -462,6 +462,22 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 .conf-g{display:flex;flex-wrap:wrap;gap:6px}
 .conf-g span{background:var(--surface);border-radius:99px;padding:3px 10px;font-size:12.5px;color:var(--ink-2)}
 .conf-g span.lim{color:var(--warn)}
+.trif{position:static;max-height:none;overflow:visible;display:block;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
+.tri-set{display:grid;gap:12px}
+.tri-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.tri-grid label{display:grid;gap:4px;font-size:13px;color:var(--ink-2)}
+.tri-rows{overflow-x:auto}
+.tri-rows table{border-collapse:separate;border-spacing:4px 4px;min-width:900px}
+.tri-rows th{font-size:11.5px;color:var(--muted);font-weight:600;text-align:center;vertical-align:bottom}
+.tri-rows input[type=number]{padding:6px 6px;font-size:13.5px;text-align:center;min-width:62px}
+.tri-btns{display:flex;flex-wrap:wrap;gap:8px}
+.tri-tbl{overflow-x:auto;margin-top:10px}
+.tri-tbl table{border-collapse:collapse;min-width:640px;width:100%}
+.tri-tbl th,.tri-tbl td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center;font-size:13px}
+.tri-tbl tr:nth-child(even) td{background:var(--surface-2)}
+.tri-tbl tr.off td{opacity:.5}
+.g{font-size:11.5px;font-weight:600;padding:0 4px;border-radius:6px}
+.g.ok{color:var(--ok)} .g.warn{color:var(--warn);background:var(--warn-soft)} .g.cut{color:var(--cut);background:var(--cut-soft)}
 .conf-g button{background:var(--surface);border:1.5px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:99px;padding:4px 12px;font-size:12.5px;color:var(--ink-2)}
 .conf-g button small{color:var(--muted);font-size:11px}
 .conf-g button.ok{border-color:var(--accent);color:var(--accent);font-weight:600}
@@ -488,6 +504,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
   <nav class="tabs" role="tablist" aria-label="מסכים">
     <button type="button" role="tab" id="tabOrder" aria-selected="true">הזמנה ממדידה</button>
     <button type="button" role="tab" id="tabFree" aria-selected="false">מחשבון חופשי</button>
+    <button type="button" role="tab" id="tabTri" aria-selected="false">טריפלקס</button>
   </nav>
   <span class="chip-db"><i></i>מבוסס על <b class="num" id="nproj"></b> פרויקטים</span>
 </div></div>
@@ -589,6 +606,32 @@ input.calc{background:var(--surface-2);color:var(--muted)}
     <button type="button" id="tDone">סיום - לתצוגה הרגילה</button>
     <span class="pdfst" id="tSt" aria-live="polite"></span>
   </div>
+</section>
+
+<section id="scrTri" class="screen" hidden>
+<form id="triF" class="trif" autocomplete="off" onsubmit="return false">
+  <div class="tri-set">
+    <p class="sec-t">שלוש מעליות בפיר אחד <span class="hint">בודק את המשקופים מול כל קומה שנמדדה</span></p>
+    <div class="tri-grid">
+      <label>פתח אור<select id="triCL"><option>800</option><option selected>900</option><option>1000</option></select></label>
+      <label>נוסעים<select id="triPS"><option value="">מקסימום</option><option>8</option><option selected>10</option><option>13</option></select></label>
+      <label>מידות חיזוקים<select id="triMX"><option value="ideal">אידיאלי 310 / 140</option><option value="abs">מינימום 280 / 110</option></select></label>
+      <label>מעלית שמאל<select id="triDT0"><option value="T2">טלסקופית 2, נפתחת לשמאל</option><option value="T3">טלסקופית 3, נפתחת לשמאל</option></select></label>
+      <label>מעלית אמצע<select disabled><option>פתיחה מרכזית</option></select></label>
+      <label>מעלית ימין<select id="triDT2"><option value="T2">טלסקופית 2, נפתחת לימין</option><option value="T3">טלסקופית 3, נפתחת לימין</option></select></label>
+      <label>משקולת מעלית אמצע<select id="triMC"><option value="R">בצד ימין</option><option value="L">בצד שמאל</option></select></label>
+    </div>
+    <p class="sec-t">הנחיה לחזית <span class="hint">כתף | פתח | עמוד | פתח | עמוד | פתח | כתף</span></p>
+    <div class="tri-grid">
+      <label>כתף<input id="triGS" type="number" value="300"></label><label>פתח<input id="triGO" type="number" value="1400"></label>
+      <label>עמוד<input id="triGP" type="number" value="650"></label><label>רוחב פיר<input id="triGW" type="number" value="6100"></label>
+    </div>
+    <p class="sec-t">מדידות לפי קומה <span class="hint">כמו בטופס המדידה: D ו-H מהקיר הצדדי עד העמוד, כולל הכתף</span></p>
+    <div class="tri-rows" id="triRows"></div>
+    <div class="tri-btns"><button type="button" id="triAdd">+ קומה</button><button type="button" id="triDel">- קומה אחרונה</button><button type="button" id="triDemo">טען את נאות פרס בניין 1</button></div>
+  </div>
+</form>
+<section class="results" id="triOut" aria-live="polite"></section>
 </section>
 
 <section id="scrFree" class="screen" hidden>
@@ -1701,6 +1744,36 @@ function browserSave(name,data){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
 }
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 /* ---------- result model: one or two lifts in one shaft ---------- */
 // R = {W, D, I, lifts:[{o, x0}], openings:[{a,b,cutA,cutB}], beam:{x,w}|null, duplex:bool}
 function singleR(o){
@@ -1724,7 +1797,8 @@ function mirrorLift(o,I2){
     jl:o.jr, jr:o.jl, legL:o.legR, legR:o.legL, shGapL:o.shGapR, shGapR:o.shGapL, panL:o.panR, panR:o.panL,
     cuts:o.cuts.map(fl), frontCuts:o.frontCuts.map(fl), ctrl:{...o.ctrl, side:sw(o.ctrl.side)}, notes:o.notes};
 }
-function sizeTitle(R){ if(!R.duplex) return `${R.main.iw}×${R.main.id}`; const [a,b]=R.lifts.map(l=>l.o); return a.iw===b.iw&&a.id===b.id? `2 × ${a.iw}×${a.id}` : `${a.iw}×${a.id} + ${b.iw}×${b.id}`; }
+const beamsOf=R=>R.beams||(R.beam?[R.beam]:[]);   // duplex: one separation beam, triplex: two
+function sizeTitle(R){ if(R.triplex) return `3 × ${R.main.iw}×${R.main.id}`; if(!R.duplex) return `${R.main.iw}×${R.main.id}`; const [a,b]=R.lifts.map(l=>l.o); return a.iw===b.iw&&a.id===b.id? `2 × ${a.iw}×${a.id}` : `${a.iw}×${a.id} + ${b.iw}×${b.id}`; }
 const dTier=R=>R.lifts.reduce((t,{o})=>t+(o.L==='NF'?8:0)+(o.cuts.length?0:4)+(o.mode==='n'?2:0),0);
 function duplexPair(I,s,a,b){
   const fcA=k=>a.frontCuts.find(c=>c.side===k)?.mm||0, fcB=k=>b.frontCuts.find(c=>c.side===k)?.mm||0;
@@ -1828,7 +1902,7 @@ function drawPlan(R, opt={}){
     rect(a,D,b-a,t+90,C('podest'),`stroke="${C('podestLine')}" stroke-width="5"`);
     txt((a+b)/2,D+t+40,lang==='en'?'LANDING':'פודסט',{fs:sfs,c:C('podestLine')}); }
   s.push(`<rect x="0" y="0" width="${W}" height="${D}" fill="none" stroke="${C('ink')}" stroke-width="6"/>`);
-  if(R.beam){ rect(R.beam.x,0,R.beam.w,D,'none',`stroke="${C('muted')}" stroke-width="6" stroke-dasharray="30 20"`); txt(R.beam.x+R.beam.w/2,D*0.18,T.beam,{fs:sfs,c:C('muted'),rot:-90}); }
+  for(const bm of beamsOf(R)){ const RB={beam:bm}; rect(RB.beam.x,0,RB.beam.w,D,'none',`stroke="${C('muted')}" stroke-width="6" stroke-dasharray="30 20"`); txt(bm.x+bm.w/2,D*0.18,T.beam,{fs:sfs,c:C('muted'),rot:-90}); }
   // ---- lifts
   for(const {o,x0} of R.lifts){
     const mc=MC(o), cx=x0+o.carL, cy=o.cy, o1=x0+o.o1, op=R.openings[R.lifts.findIndex(l=>l.o===o)];
@@ -1907,7 +1981,7 @@ function drawPlan(R, opt={}){
   const topPts=[], topLab=[];
   R.lifts.forEach(({o,x0},i)=>{ const cx=x0+o.carL; let r1,r2; if(o.L==='NF'){ r1=cx-o.railOff; r2=cx+o.extW+o.railOff; } else { r1=cx; r2=cx+o.extW; }
     const mc=MC(o), cw={v:o.gapCwt,n:o.L==='NF'?T.cwt:T.rsSide,c:mc}, ot={v:o.gapOth,n:o.L==='NF'?T.single:T.rsFree,c:mc};
-    if(i>0){ topLab.push({v:R.beam.w,n:T.beam}); }
+    if(i>0){ topLab.push({v:beamsOf(R)[i-1]?.w||100,n:T.beam}); }
     topPts.push(x0,r1,r2); topLab.push(o.side==='L'?cw:ot,{v:o.L==='NF'?o.dbgCar:o.extW,n:o.L==='NF'?T.dbg:T.car},o.side==='L'?ot:cw);
     if(i===R.lifts.length-1) topPts.push(x0+o.I.W); else topPts.push(x0+o.I.W);
   });
@@ -2017,15 +2091,16 @@ function dataSheet(doc,R,project,he,T){
   sec(T('PROJECT','פרויקט'));
   row(T('Project / ref.','שם הפרויקט'), project||'-');
   sec(T('SHAFT','פיר'));
-  row(T(R.duplex?'Common shaft W × D':'Shaft W × D', R.duplex?'פיר משותף רוחב × עומק':'פיר רוחב × עומק'), `${R.W} × ${R.D}`+T(' mm',' מ"מ'));
-  if(!R.duplex) row(T('Shoulders left / right','כתפיים שמאל / ימין'), `${I.SL} / ${I.SR}`);
+  row(T(R.duplex||R.triplex?'Common shaft W × D':'Shaft W × D', R.duplex||R.triplex?'פיר משותף רוחב × עומק':'פיר רוחב × עומק'), `${R.W} × ${R.D}`+T(' mm',' מ"מ'));
+  if(!R.duplex&&!R.triplex) row(T('Shoulders left / right','כתפיים שמאל / ימין'), `${I.SL} / ${I.SR}`);
   row(T('Stops','תחנות'), String(I.stops));
   row(T('Floors','מספור קומות'), Array.from({length:I.stops},(_,i)=>i+(+I.fl0||0)).join(', '));   // numbers only: a minus sign inside Hebrew text flips
   if(R.duplex){ row(T('Pillar between openings','עמוד בין הפתחים'), mm(I.pillar)); row(T('Separation beam','קורה מפרידה'), mm(R.beam.w)); }
+  if(R.triplex){ row(T('Openings (common to all floors)','פתחים (משותף לכל הקומות)'), R.openings.map(op=>op.b-op.a).join(' / ')); row(T('Separation beams from the left wall','קורות מפרידות מהקיר השמאלי'), R.beams.map(b=>b.x).join(' / ')); }
   const dt={T2:T('2-panel telescopic','טלסקופית 2 כנפיים'),T3:T('3-panel telescopic','טלסקופית 3 כנפיים'),C:T('centre opening','פתיחה מרכזית')};
   let anyOut=false;
   R.lifts.forEach(({o},i)=>{
-    sec(R.duplex? T(i===0?'LIFT - LEFT':'LIFT - RIGHT', i===0?'מעלית שמאל':'מעלית ימין') : T('LIFT','מעלית'));
+    sec(R.triplex? T(['LIFT - LEFT','LIFT - MIDDLE','LIFT - RIGHT'][i], ['מעלית שמאל','מעלית אמצע','מעלית ימין'][i]) : R.duplex? T(i===0?'LIFT - LEFT':'LIFT - RIGHT', i===0?'מעלית שמאל':'מעלית ימין') : T('LIFT','מעלית'));
     row(T('Model / layout','דגם / סוג'), `${o.model} / ${o.L==='NF'?T('Normal frame','נורמל פריים'):T('Rucksack','רוגזק')}`);
     row(T('Load / persons','עומס / נוסעים'), T(`${o.q} kg / ${o.persons} persons`,`${o.q} ק"ג / ${o.persons} נוסעים`));
     row(T('Car internal W × D','תא פנים רוחב × עומק'), `${o.iw} × ${o.id}`+T(` mm - ${(o.iw*o.id/1e6).toFixed(2)} m²`,` מ"מ - ${(o.iw*o.id/1e6).toFixed(2)} מ"ר`));
@@ -2084,7 +2159,7 @@ function view3d(R, host){
   if(sd){ const a=mm(sd.sb), b=D-mm(sd.sf); box(T,H,a,concrete,sx,yc,a/2); box(T,H,D-b,concrete,sx,yc,(b+D)/2); }
   if(!(sd&&I.s90==='L')) box(T,H,D,concrete,-T/2,yc,D/2);
   if(!(sd&&I.s90==='R')) box(T,H,D,concrete,W+T/2,yc,D/2);
-  if(R.beam){ for(let k=0;k<n;k++) box(mm(R.beam.w),0.12,D,M(0x5d6b73,{m:0.3,r:0.5}),mm(R.beam.x+R.beam.w/2),k*FH+2.6,D/2); }
+  for(const bm of beamsOf(R)){ const R_={beam:bm}; for(let k=0;k<n;k++) box(mm(R_.beam.w),0.12,D,M(0x5d6b73,{m:0.3,r:0.5}),mm(bm.x+bm.w/2),k*FH+2.6,D/2); }
   const label=(txt,x,y,z)=>{ const c=document.createElement('canvas'); c.width=128;c.height=64; const g=c.getContext('2d'); g.fillStyle='#1d2a33'; g.fillRect(0,0,128,64); g.fillStyle='#fff'; g.font='bold 40px monospace'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(txt,64,34);
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c)})); sp.scale.set(0.34,0.17,1); sp.position.set(x,y,z); scene.add(sp); };
   for(const op of ops) box(op.b-op.a,PIT,T,front,(op.a+op.b)/2,-PIT/2,fz);
@@ -2302,7 +2377,7 @@ function felesaSheet(R, meta={}){
   // shoulders to be cut: hatched
   R.openings.forEach(op=>{ for(const [a,b] of [[op.a-op.cutA,op.a],[op.b,op.b+op.cutB]]) if(b-a>0){
     wr(a,D,b-a,t,{s:0,f:null,w:FS.dw}); for(let x=a;x<b+t;x+=40){ const x1=Math.max(a,x-t), y1=D+(x-x1), x2=Math.min(b,x); wl(x2,D+(x-x2),x1,y1,{w:FS.dw}); } } });
-  if(R.beam){ wr(R.beam.x,0,R.beam.w,D,{s:0,w:FS.dw,d:[3,1.5]}); }
+  for(const bm of (R.beams||(R.beam?[R.beam]:[]))) wr(bm.x,0,bm.w,D,{s:0,w:FS.dw,d:[3,1.5]});
   // ---- lifts
   const cwDims=[];
   R.lifts.forEach(({o,x0},li)=>{
@@ -2400,7 +2475,7 @@ function felesaSheet(R, meta={}){
       if(o.side==='L'){ row2.push(...sp,cx,cx+o.extW,r2); lab2.push(...spl,String(Math.round(o.railOff)),T('Car width: ','רוחב תא: ')+o.extW,String(Math.round(o.railOff)),null); }
       else { row2.push(r1,cx,cx+o.extW,...sp); lab2.push(String(Math.round(o.railOff)),T('Car width: ','רוחב תא: ')+o.extW,String(Math.round(o.railOff)),...spl,null); }
     } else { row1.push(x0,cx,cx+o.extW); lab1.push(String(Math.round(cx-x0)),T('Car width ext.: ','רוחב תא חוץ: ')+o.extW,String(Math.round(x0+HW-cx-o.extW))); }
-    row1.push(x0+HW); if(i<R.lifts.length-1){ lab1.push(String(R.beam.w)); }
+    row1.push(x0+HW); if(i<R.lifts.length-1){ lab1.push(String((R.beams||[R.beam])[i].w)); }
   });
   { // dedupe consecutive equal points
     const dd=(pts,labs)=>{ const p=[pts[0]], l=[]; for(let i=1;i<pts.length;i++){ if(Math.abs(pts[i]-p[p.length-1])<0.5){ continue; } p.push(pts[i]); l.push(labs[i-1]); } return [p,l]; };
@@ -2956,6 +3031,149 @@ async function importMeasurement(f,st){
     say(m||('הייבוא נכשל: '+(e?.message||e?.code||e)),'warn');
   }
 }
+/* ---------- triplex: three lifts in one shaft, checked against every measured floor ---------- */
+// A floor row is the Idan measurement form (mm): A depth, B width, C right shoulder, D right wall to the right pillar
+// (incl. the shoulder), E right pillar, F middle opening, G left pillar, H left wall to the left pillar (incl. the
+// shoulder), I left shoulder. x runs from the left wall, as seen from the lobby.
+const TRI_NAMES=['שמאל','אמצע','ימין'];
+const TRI_DEMO={ // Neot Peres, lot 226, building 1 - first measurement 01/11/2026 (floors 2-3 look mis-measured: off by 72/84 mm)
+  name:'נאות פרס 226 בניין 1',
+  floors:[[-3,2093,6107,308,1614,760,1302,784,1657,359,1],[-2,2112,6101,307,1667,750,1296,750,1658,361,1],[-1,2044,6125,398,1686,726,1305,770,1629,369,1],
+    [0,2092,6140,371,1670,775,1306,740,1621,312,1],[1,2075,6117,480,1766,670,1309,715,1676,370,1],[2,2081,6139,294,1733,660,1435,646,1737,298,0],[3,2081,6140,301,1744,660,1436,630,1754,307,0]]};
+const TRI_GUIDE={sh:300, op:1400, pil:650, W:6100};   // design front: 300 | 1400 | 650 | 1400 | 650 | 1400 | 300
+// edges of one floor: walls, the three openings and the two pillars. Left part chained from the left wall, right part from
+// the right wall; where the two chains disagree (the row does not add up to B) the middle opening takes the narrower reading.
+function triEdges(r){
+  const B=+r.B, ma=Math.max(r.H+r.G, B-r.D-r.E-r.F), mb=Math.min(r.H+r.G+r.F, B-r.D-r.E);
+  return {w0:0, w1:B, op:[[+r.I,+r.H],[ma,mb],[B-r.D,B-r.C]], pil:[[+r.H,ma],[mb,B-r.D]], err:Math.round(r.H+r.G+r.F+r.E+r.D-B)};
+}
+const shiftE=(e,s)=>({w0:e.w0+s,w1:e.w1+s,op:e.op.map(([a,b])=>[a+s,b+s]),pil:e.pil.map(([a,b])=>[a+s,b+s]),err:e.err});
+// the floors are lined up with a shift each (walls are not plumb): try the left wall, the right wall and the centre as
+// the datum, then refine every floor by up to +-60 mm so the common free width of the worst opening is as large as possible
+function triAlign(rows,need){
+  const E=rows.map(triEdges), Bm=Math.max(...E.map(e=>e.w1));
+  const common=sh=>{ const S=E.map((e,i)=>shiftE(e,sh[i]));
+    const op=[0,1,2].map(k=>[Math.max(...S.map(e=>e.op[k][0])),Math.min(...S.map(e=>e.op[k][1]))]);
+    const pil=[0,1].map(k=>[Math.max(...S.map(e=>e.pil[k][0])),Math.min(...S.map(e=>e.pil[k][1]))]);
+    const w=[Math.max(...S.map(e=>e.w0)),Math.min(...S.map(e=>e.w1))];
+    return {S,op,pil,w}; };
+  const score=sh=>{ const c=common(sh), m=Math.min(...c.op.map(([a,b])=>b-a-need)), wd=c.w[1]-c.w[0];
+    return m*10 + Math.min(0, wd-(Math.min(...E.map(e=>e.w1))-40))*20 + wd*0.01; };
+  const starts={'קיר שמאל':E.map(()=>0), 'קיר ימין':E.map(e=>Bm-e.w1), 'מרכז הפיר':E.map(e=>(Bm-e.w1)/2)};
+  let best=null;
+  for(const [name,s0] of Object.entries(starts)){
+    const sh=[...s0]; let sc=score(sh);
+    for(let pass=0;pass<4;pass++) for(let i=0;i<sh.length;i++) for(let d=-60;d<=60;d+=5){
+      const t=[...sh]; t[i]=s0[i]+d; const v=score(t); if(v>sc+1e-9){ sc=v; sh[i]=t[i]; } }
+    const base=name; if(!best||sc>best.sc) best={sc,sh,base,s0}; }
+  const c=common(best.sh), x0=c.w[0];   // common frame starts at the common left wall
+  const mv=v=>v-x0, mvI=([a,b])=>[mv(a),mv(b)];
+  return {datum:best.base, shifts:best.sh.map((v,i)=>Math.round(v-best.s0[i])), S:c.S.map(e=>({...e,w0:mv(e.w0),w1:mv(e.w1),op:e.op.map(mvI),pil:e.pil.map(mvI)})),
+    op:c.op.map(mvI), pil:c.pil.map(mvI), W:Math.round(c.w[1]-c.w[0])};
+}
+// lay out three lifts in the common shaft: beams (100) behind the pillars, each lift solved with the normal rules
+function triSolve(TI){
+  const rows=TI.floors.filter(r=>r.use);
+  if(rows.length<1) return {err:'אין קומות לחישוב'};
+  const need=TI.clear+2*P.jamb+2*P.shGap, al=triAlign(rows,need), bw=TI.beam||100;
+  const D=Math.min(...rows.map(r=>+r.A));
+  const base={D, stops:TI.floors.length, flList:TI.floors.map(r=>r.fl), fl0:Math.min(...TI.floors.map(r=>+r.fl)), en:'1', ct:'big', s90:'R', sm:'single', clear:TI.clear, ex:true, mx:TI.mx, fp:'std', fpv:250, cg:'std', cgv:45, bk:null, cw:null, cd:null, sd:false, rs:false};
+  const cfg=[{dt:TI.dt[0],dir:TI.dir[0],side:'L'},{dt:TI.dt[1],dir:TI.dir[1],side:TI.midCwt},{dt:TI.dt[2],dir:TI.dir[2],side:'R'}];
+  const sub=(k,a,b,req)=>{ const [oa,ob]=al.op[k]; const I={...base,...req,W:b-a,SL:Math.max(0,Math.round(oa-a)),SR:Math.max(0,Math.round(b-ob)),dt:cfg[k].dt,dir:cfg[k].dir,forceSide:cfg[k].side};
+    const o=solve(I).list.find(x=>x.L==='NF'); return o?{o,x0:a,I}:null; };
+  const range=([a,b])=>{ const lo=Math.round(a), hi=Math.round(b-bw); const r=[]; if(hi>=lo) for(let x=lo;x<=hi;x+=20) r.push(x); else r.push(Math.round((a+b-bw)/2)); return r; };
+  const B1=range(al.pil[0]), B2=range(al.pil[1]);
+  const try3=req=>{ const cL=new Map(), cR=new Map(); let best=null;
+    for(const b1 of B1){ if(!cL.has(b1)) cL.set(b1,sub(0,0,b1,req)); const L=cL.get(b1); if(!L) continue;
+      for(const b2 of B2){ if(!cR.has(b2)) cR.set(b2,sub(2,b2+bw,al.W,req)); const Rr=cR.get(b2); if(!Rr) continue;
+        const M=sub(1,b1+bw,b2,req); if(!M) continue;
+        const ls=[L,M,Rr], cut=ls.reduce((t,l)=>t+l.o.cuts.reduce((s,c)=>s+c.mm,0),0);
+        const sc=-cut*100 + Math.min(...ls.map(l=>l.o.area))*1000 - ls.reduce((t,l)=>t+Math.abs(l.o.jl-l.o.jr),0);
+        if(!best||sc>best.sc) best={sc,ls,b1,b2}; } }
+    return best; };
+  let res=try3({ps:TI.ps||null}), note='';
+  if(!res && TI.ps){ res=try3({ps:null}); note=`${TI.ps} נוסעים לא נכנס בשלוש המעליות - מוצג התא הגדול שנכנס`; }
+  if(!res) return {err:'לא נמצא סידור של שלוש מעליות נורמל פריים בפיר המשותף', al, D};
+  // one car size for all three: try the sizes that came out (and the standard car), largest first, keeping the persons
+  if(res.ls.some(l=>l.o.iw!==res.ls[0].o.iw||l.o.id!==res.ls[0].o.id)){
+    const want=res.ls[0].o.persons, sizes=[];
+    for(const z of [...res.ls.map(l=>l.o), ...STD.map(s=>({iw:s.w,id:s.d}))]) if(!sizes.some(q=>q.iw===z.iw&&q.id===z.id)) sizes.push({iw:z.iw,id:z.id});
+    sizes.sort((a,b)=>b.iw*b.id-a.iw*a.id);
+    const cutOf=r=>r.ls.reduce((t,l)=>t+l.o.cuts.reduce((s,c)=>s+c.mm,0),0); let pick=null;
+    for(const z of sizes){ const r2=try3({cw:z.iw,cd:z.id,ps:null}); if(!r2 || !r2.ls.every(l=>l.o.persons===(TI.ps||want))) continue;
+      if(!pick || cutOf(r2)<cutOf(pick)) pick=r2; if(!cutOf(pick)) break; }   // largest common car without cutting, else the least cutting
+    if(pick) res=pick; }
+  const lifts=res.ls.map(l=>({o:l.o,x0:l.x0}));
+  const openings=al.op.map(([a,b],k)=>{ const fc=s=>lifts[k].o.frontCuts.find(c=>c.side===s)?.mm||0; return {a:Math.round(a),b:Math.round(b),cutA:fc('L'),cutB:fc('R')}; });
+  const R={W:al.W,D,I:{...base,W:al.W,SL:openings[0].a,SR:al.W-openings[2].b},lifts,openings,beams:[{x:res.b1,w:bw},{x:res.b2,w:bw}],beam:{x:res.b1,w:bw},triplex:true,main:lifts[0].o,
+    notes:note?[{t:note,c:'warn'}]:[]};
+  // per floor: frame edges against that floor's openings
+  const fr=lifts.map(({o,x0})=>[x0+o.o1-P.jamb, x0+o.o1+o.clear+P.jamb]);
+  const floors=rows.map((r,i)=>{ const e=al.S[i];
+    return {fl:r.fl, err:e.err, shift:al.shifts[i], W:Math.round(e.w1-e.w0), lifts:fr.map(([fa,fb],k)=>{ const [oa,ob]=e.op[k]; return {gL:Math.round(fa-oa), gR:Math.round(ob-fb)}; })}; });
+  return {R, al, floors, D, need, cfg};
+}
+// guideline vs measured: every element of the front, per floor
+function triGuideRows(TI){
+  const g=TI.guide;
+  return TI.floors.map(r=>({fl:r.fl,use:r.use, v:[[+r.C,g.sh],[r.D-r.C,g.op],[+r.E,g.pil],[+r.F,g.op],[+r.G,g.pil],[r.H-r.I,g.op],[+r.I,g.sh],[+r.B,g.W]]}));
+}
+
+/* ---- the triplex screen ---- */
+const TRI_COLS=['fl','A','B','C','D','E','F','G','H','I'];
+const TRI_HEAD=['קומה','A עומק','B רוחב','C כתף ימין','D קיר לעמוד ימין','E עמוד ימין','F פתח אמצע','G עמוד שמאל','H קיר לעמוד שמאל','I כתף שמאל'];
+let TRI_ROWS=null;
+function triInit(){
+  if(TRI_ROWS) return;
+  try{ TRI_ROWS=JSON.parse(localStorage.getItem('triRows')||'null'); }catch{}
+  if(!TRI_ROWS) TRI_ROWS=TRI_DEMO.floors.map(a=>({fl:a[0],A:a[1],B:a[2],C:a[3],D:a[4],E:a[5],F:a[6],G:a[7],H:a[8],I:a[9],use:!!a[10]}));
+  triTable();
+  $('triF').addEventListener('input',triRun);
+  $('triDemo').onclick=()=>{ TRI_ROWS=TRI_DEMO.floors.map(a=>({fl:a[0],A:a[1],B:a[2],C:a[3],D:a[4],E:a[5],F:a[6],G:a[7],H:a[8],I:a[9],use:!!a[10]})); triTable(); triRun(); };
+  $('triAdd').onclick=()=>{ const l=TRI_ROWS[TRI_ROWS.length-1]; TRI_ROWS.push({...(l||{}),fl:(l?+l.fl+1:0),use:true}); triTable(); triRun(); };
+  $('triDel').onclick=()=>{ TRI_ROWS.pop(); triTable(); triRun(); };
+}
+function triTable(){
+  $('triRows').innerHTML=`<table><thead><tr>${TRI_HEAD.map(h=>`<th>${h}</th>`).join('')}<th>בחישוב</th></tr></thead><tbody>${TRI_ROWS.map((r,i)=>`<tr>${TRI_COLS.map(c=>`<td><input type="number" inputmode="numeric" data-i="${i}" data-c="${c}" value="${r[c]??''}"></td>`).join('')}<td><input type="checkbox" data-i="${i}" data-c="use" ${r.use?'checked':''}></td></tr>`).join('')}</tbody></table>`;
+}
+function triRead(){
+  document.querySelectorAll('#triRows input').forEach(e=>{ const r=TRI_ROWS[+e.dataset.i]; if(e.dataset.c==='use') r.use=e.checked; else r[e.dataset.c]=e.value===''?null:+e.value; });
+  try{ localStorage.setItem('triRows',JSON.stringify(TRI_ROWS)); }catch{}
+  const v=id=>$(id).value;
+  return {floors:TRI_ROWS.filter(r=>TRI_COLS.slice(1).every(c=>r[c]!=null)), clear:+v('triCL'), ps:+v('triPS')||null, mx:v('triMX'), beam:100,
+    dt:[v('triDT0'),'C',v('triDT2')], dir:['L','C','R'], midCwt:v('triMC'), guide:{sh:+v('triGS'),op:+v('triGO'),pil:+v('triGP'),W:+v('triGW')}};
+}
+function triRun(){
+  const TI=triRead(), out=$('triOut');
+  if(!TI.floors.length){ out.innerHTML='<div class="empty">הזן לפחות קומה אחת.</div>'; return; }
+  const X=triSolve(TI), gr=triGuideRows(TI);
+  const good=v=>v>=P.shGap?'ok':v>=0?'warn':'cut';
+  const head=`<div class="summary"><span>${TI.floors.filter(r=>r.use).length} קומות בחישוב מתוך ${TI.floors.length}</span>${X.al?`<span>יישור: ${X.al.datum}${X.al.shifts.some(s=>s)?` + תיקון עד ${Math.max(...X.al.shifts.map(Math.abs))} מ"מ לקומה`:''}</span><span>פיר משותף <b class="num">${X.al.W}×${X.D}</b></span>`:''}</div>`;
+  let html=head;
+  if(X.err) html+=`<div class="empty"><b>${X.err}</b></div>`;
+  else {
+    const R=X.R, o=R.main;
+    html+=`<article class="hero"><div class="bar"><div class="t"><span class="rank">טריפלקס</span><h2><span class="num">3 × ${o.iw}×${o.id}</span><small>מ"מ פנים</small></h2>
+      <div class="pills">${R.lifts.map(({o:l},k)=>`<span class="pill p-mut">${TRI_NAMES[k]}: ${dtName(l.dt)} ${l.clear}${l.dt!=='C'?(l.doorDir==='R'?' לימין':' לשמאל'):''} · משקולת ${sideName(l.side)}</span>`).join('')}</div></div></div>
+      <div class="kpis"><div class="kpi"><span>עומס</span><b><span class="num">${o.q}</span><small>ק"ג</small></b></div><div class="kpi"><span>נוסעים</span><b>${o.persons}</b></div>
+      <div class="kpi"><span>פתח אור</span><b><span class="num">${o.clear}</span></b></div><div class="kpi"><span>קורות</span><b><span class="num">${R.beams.map(b=>b.x).join(' / ')}</span><small>מהקיר השמאלי</small></b></div></div>
+      <div class="export"><input id="triPRJ" placeholder="שם פרויקט (לשרטוט)" value="${TRI_DEMO.name}"><button type="button" class="go" id="triPdf">PDF באנגלית</button><button type="button" class="go" id="triPdfHe">PDF בעברית</button><span class="pdfst" id="pdfst"></span></div>
+      <div class="vplan" style="margin:0 22px 18px"><span class="vtag">מבט על · פיר משותף (החיתוך של כל הקומות)</span>${drawPlan(R)}</div>
+      ${R.notes.length?`<ul class="notes" style="margin:0 22px 18px">${R.notes.map(n=>`<li class="${n.c}">${n.t}</li>`).join('')}</ul>`:''}
+    </article>`;
+    // per floor
+    html+=`<details class="box" open><summary>בדיקה לפי קומה - המשקופים מול הפתחים (מרווח משקוף-כתף / עמוד, שמאל | ימין)</summary><div class="tri-tbl"><table><thead><tr><th>קומה</th><th>סטיית סכום</th><th>תיקון יישור</th>${TRI_NAMES.map(n=>`<th>מעלית ${n}</th>`).join('')}</tr></thead><tbody>
+      ${X.floors.map(f=>`<tr><td><b>${f.fl}</b></td><td class="num">${f.err>0?'+':''}${f.err}</td><td class="num">${f.shift}</td>${f.lifts.map(l=>`<td class="num" dir="ltr"><span class="g ${good(l.gL)}">${l.gL<0?'ניסור '+(-l.gL):l.gL}</span> | <span class="g ${good(l.gR)}">${l.gR<0?'ניסור '+(-l.gR):l.gR}</span></td>`).join('')}</tr>`).join('')}
+      </tbody></table><p class="hint">ירוק: 50 מ"מ ומעלה. כתום: פחות מ-50 (נכנס בלי ניסור). אדום: צריך לנסר כתף או עמוד בכמות הרשומה. סטיית סכום = D+E+F+G+H פחות B (טעות מדידה).</p></div></details>`;
+  }
+  // guideline
+  const gn=['כתף ימין','פתח ימין','עמוד ימין','פתח אמצע','עמוד שמאל','פתח שמאל','כתף שמאל','רוחב'];
+  html+=`<details class="box" open><summary>השוואה להנחיה (${TI.guide.sh} | ${TI.guide.op} | ${TI.guide.pil} | ${TI.guide.op} | ${TI.guide.pil} | ${TI.guide.op} | ${TI.guide.sh} = ${TI.guide.W})</summary><div class="tri-tbl"><table><thead><tr><th>קומה</th>${gn.map(n=>`<th>${n}</th>`).join('')}</tr></thead><tbody>
+    ${gr.map(r=>`<tr class="${r.use?'':'off'}"><td><b>${r.fl}</b>${r.use?'':' <small>(לא בחישוב)</small>'}</td>${r.v.map(([m,g])=>{ const d=Math.round(m-g); return `<td class="num">${m} <span class="g ${Math.abs(d)<=20?'ok':Math.abs(d)<=60?'warn':'cut'}">${d>0?'+':''}${d}</span></td>`; }).join('')}</tr>`).join('')}
+    </tbody></table><p class="hint">המספר הקטן = סטייה מההנחיה. ירוק עד 20, כתום עד 60, אדום מעל.</p></div></details>`;
+  out.innerHTML=html;
+  if(!X.err){ $('triPdf').onclick=()=>exportPDF(X.R,$('triPRJ').value,null,'en'); $('triPdfHe').onclick=()=>exportPDF(X.R,$('triPRJ').value,null,'he'); planZoom?.(); }
+}
 
 /* ---------- render ---------- */
 const $=id=>document.getElementById(id);
@@ -3166,12 +3384,12 @@ document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey) && e.key.toLo
 HCUR=fSnap();
 function tab(which){
   const tech=which==='tech', ord=which==='order';
-  $('scrOrder').hidden=!ord; $('scrFree').hidden=which!=='free'; $('scrTech').hidden=!tech; document.body.classList.toggle('techmode',tech);
-  $('tabOrder').setAttribute('aria-selected',ord||tech); $('tabFree').setAttribute('aria-selected',which==='free');
+  $('scrOrder').hidden=!ord; $('scrFree').hidden=which!=='free'; $('scrTech').hidden=!tech; $('scrTri').hidden=which!=='tri'; document.body.classList.toggle('techmode',tech);
+  $('tabOrder').setAttribute('aria-selected',ord||tech); $('tabFree').setAttribute('aria-selected',which==='free'); $('tabTri').setAttribute('aria-selected',which==='tri');
   if(R3){R3.dispose();R3=null;}
-  if(tech){ renderTech(); scrollTo(0,0); } else if(ord){ oSide(); oTable(); oRun(); } else render();
+  if(tech){ renderTech(); scrollTo(0,0); } else if(ord){ oSide(); oTable(); oRun(); } else if(which==='tri'){ triInit(); triRun(); } else render();
   try{ if(!tech) localStorage.setItem('tab',which); }catch{} }
-$('tabOrder').onclick=()=>tab('order'); $('tabFree').onclick=()=>tab('free');
+$('tabOrder').onclick=()=>tab('order'); $('tabFree').onclick=()=>tab('free'); $('tabTri').onclick=()=>tab('tri');
 oInit(); let t0='order'; try{ t0=localStorage.getItem('tab')||'order'; }catch{} if(location.hash==='#measure') t0='tech'; tab(t0);
 </script>
 <script>if(!PROJECTS.length){document.querySelector('.chip-db')?.remove();const t=document.getElementById('ptable');if(t)t.closest('details')?.remove();}</script>
