@@ -462,6 +462,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 .conf-g{display:flex;flex-wrap:wrap;gap:6px}
 .conf-g span{background:var(--surface);border-radius:99px;padding:3px 10px;font-size:12.5px;color:var(--ink-2)}
 .conf-g span.lim{color:var(--warn)}
+.vplan svg.fsheet{display:block;max-height:78vh;border-radius:var(--r-sm)}
 .trif{position:static;max-height:none;overflow:visible;display:block;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
 .tri-set{display:grid;gap:12px}
 .tri-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
@@ -564,7 +565,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 <script>
 
 const PROJECTS = /*DATA*/[];
-const APP_VERSION='v23';
+const APP_VERSION='v26';
 
 /* ---------- parameters (derived from the drawings; edit here) ---------- */
 const P = {
@@ -585,6 +586,7 @@ const P = {
   jamb: 140, jambMin: 140, jambCtrl: 180, // landing door frame (jamb); frame controller needs 180
   flush: [45, 65],                     // telescopic: standard opening edge to car edge (exterior) on the non-stacking side
   stackMin: 150,                       // min car front panel on the stacking side (exterior) when the frame is shifted - drawings: p5 155, seen down to 130
+  panelMin: {close: 35, stack: 130, centre: 125},   // hard minimum front panels seen on the Felesa drawings (closing side / stacking side / centre door)
   carDoor: {T2: 220, T3: 150, C: 260}, // car exterior width >= clear + this
   shaftDoor: {T2: c => 1.5*c + 180, T3: c => 1.34*c + 250, C: c => 2*c - 70},
   clears: [1300,1200,1100,1000,900,800,750,700,650,600],
@@ -789,11 +791,11 @@ function fpSplit(f){ const z=P.doorZone, d0=z.carDoor, d1=d0+z.landDoor, f1=d1+P
   const dIn=cl(f-d0,z.landDoor), fIn=cl(f-d1,P.frameD);
   return {dIn, dOut:z.landDoor-dIn, fIn, fOut:P.frameD-fIn, tIn:dIn+fIn, tOut:z.landDoor-dIn+P.frameD-fIn}; }
 function fpHtml(f){ const s=fpSplit(f);   // compact table for the slider: what sits inside the shaft and what on the landing
-  return `<div class="h">חזית ${f}</div><i></i><i>בפיר</i><i>בפודסט</i><i>דלת קומה</i><span>${s.dIn}</span><span>${s.dOut}</span><i>משקוף</i><span>${s.fIn}</span><span>${s.fOut}</span>`; }
+  return `<div class="h">חזית ${f}</div><i></i><i>בפיר</i><i>בפודסט</i><i>סף</i><span>${s.dIn}</span><span>${s.dOut}</span><i>משקוף</i><span>${s.fIn}</span><span>${s.fOut}</span>`; }
 function fpText(f){ const s=fpSplit(f);
   return `חזית ${f}
-בתוך הפיר: ${s.tIn} (דלת קומה ${s.dIn}${s.fIn?` + משקוף ${s.fIn}`:''})
-על הפודסט: ${s.tOut} (דלת קומה ${s.dOut} + משקוף ${s.fOut})`; }
+בתוך הפיר: ${s.tIn} (סף ${s.dIn}${s.fIn?` + משקוף ${s.fIn}`:''})
+על הפודסט: ${s.tOut} (סף ${s.dOut} + משקוף ${s.fOut})`; }
 // sill lengths, measured on Felesa drawings (800/900 telescopic, 750 centre): the landing sill runs c/2+50 past the
 // opening on the stacking side and 15 on the closing side; the car sill is shorter (c/2+30). 3-panel doors: not measured.
 function sillSpan(o1,c,dt,dir){ const L=c/2+50, K=c/2+30, e=15;
@@ -939,7 +941,15 @@ function build(I,L,side,mode,c){
     if(!best||sc>best.sc) best={sc,g,d,cL};
   }
   gapCwt=best.g; gapOth=(L==='NF'?I.W-dbgCar:I.W-extW)-gapCwt; carL=best.cL;
-  const carR = carL+extW, d=best.d;
+  const carR = carL+extW; let d=best.d;
+  if(+I.fs){   // the user moves the frame sideways (+ right): the car front panels change; limited by the minimum panels
+    const pm=P.panelMin, R_=d.dir==='A', C_=d.dir==='C', minL=C_?pm.centre:R_?pm.close:pm.stack, minR=C_?pm.centre:R_?pm.stack:pm.close;
+    const lo=carL+minL, hi=carR-d.cl-minR, want=d.o1+(+I.fs), n=Math.round(Math.min(hi,Math.max(lo,want)));
+    if(n!==want) notes.push({t:`הזזת המשקוף מוגבלת: אפשר ${Math.round(d.o1-lo)} שמאלה עד ${Math.round(hi-d.o1)} ימינה (מזוזה מינימלית ${minL} / ${minR})`,c:'warn'});
+    const ja=n-oL, jb=oR-n-d.cl, cuts=[];
+    if(ja<P.jambMin) cuts.push({end:'A',mm:P.jambMin-ja}); if(jb<P.jambMin) cuts.push({end:'B',mm:P.jambMin-jb});
+    d={...d,o1:n,ja:Math.max(ja,P.jambMin),jb:Math.max(jb,P.jambMin),cuts,lo:n,hi:n};
+    notes.push({t:`המשקוף הוזז ידנית ${Math.abs(n-best.d.o1)} מ"מ ${n>best.d.o1?'ימינה':'שמאלה'}`,c:''}); }
   if(!I.clear){
     const bigger = ok.filter(cl=>cl>d.cl).pop();
     if(bigger && !d.cuts.length){ const b2=placeDoor(bigger,carL,carR,oL,oR,dt,dirPref,P.jambMin);
@@ -1025,6 +1035,24 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear,q),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -2169,7 +2197,7 @@ function felesaSheet(R, meta={}){
         const left=C_||!R_, ca=left? sl.car[0] : sl.car[1], la_=left? sl.land[0] : sl.land[1], a=left?'l':'r', off=left?1:-1;
         tx(X(ca)+off*1.2,Y((cs0+cs1)/2)+0.9,T('CAR SILL','סף קבינה'),{a,size:6,mask:false}); tx(X(la_)+off*1.2,Y((ls0+ls1)/2)+0.9,T('LANDING SILL','סף קומה'),{a,size:6,mask:false});
         // landing sill end to side wall, stacking side (measured Felesa sill lengths; not for 3-panel doors)
-        if(dt!=='T3') for(const side of C_?['L','R']:[R_?'R':'L']){ const xe=side==='L'? sl.land[0] : sl.land[1], xw=side==='L'? x0 : x0+o.I.W, yy=Y((ls0+ls1)/2);
+        if(dt!=='T3') for(const side of (C_?['L','R']:[R_?'R':'L']).filter(sd=>sd==='L'? li===0 : li===R.lifts.length-1)){ const xe=side==='L'? sl.land[0] : sl.land[1], xw=side==='L'? x0 : x0+o.I.W, yy=Y((ls0+ls1)/2);
           const v=Math.round(side==='L'? xe-xw : xw-xe); if(Math.abs(v)<1) continue;
           const [p1,p2]=side==='L'? [X(xw),X(xe)] : [X(xe),X(xw)]; hchain([p1,p2],yy+(v<0?0:0)-0.2,[String(v)],null,{size:FS.sm}); } }
       return {yF,sl};
@@ -2195,7 +2223,7 @@ function felesaSheet(R, meta={}){
       wr(cwX-70,yt+12,140,yb-yt-24,{w:FS.lw}); wr(cwX-50,yt+45,100,yb-yt-90,{w:FS.dw});
       for(let y=yt+45+(yb-yt-90)/4;y<yb-45-1;y+=(yb-yt-90)/4) wl(cwX-50,y,cwX+50,y,{w:FS.dw});
       wl(cwX,yt-90,cwX,yb+90,{w:FS.dw,d:[4,1,0.6,1]});
-      cwDims.push({side:o.side,yt,yb,mid:midY,v:o.dbgCwt,x:cwX});
+      if((o.side==='L'&&li===0)||(o.side==='R'&&li===R.lifts.length-1)) cwDims.push({side:o.side,yt,yb,mid:midY,v:o.dbgCwt,x:cwX});   // an inner counterweight (triplex middle lift) gets no chain outside the shaft
     } else {
       const y1=midY-o.dbgCar/2, y2=midY+o.dbgCar/2, rx=x0+(o.side==='L'?250:HW-250), cwX=x0+(o.side==='L'?90:HW-90);
       tRailY(rx,y1,-1); tRailY(rx,y2,1);
@@ -2314,6 +2342,21 @@ function felesaSheet(R, meta={}){
       tx(tx0,ty,T('CONTROLLER CABINET','ארון פיקוד'),{a:ta,u:true}); tx(tx0,ty+4.2,T('PRIMED','צבוע יסוד'),{a:ta}); tx(tx0,ty+8.4,big?'450X250X2000':'160X150X2000',{a:ta}); tx(tx0,ty+12.6,T('LAST FLOOR','בקומה העליונה'),{a:ta});
     }
   }
+  // no text on top of another text: a text that hits one already placed steps off its line (up / down along its own
+  // normal, 1.6 mm at a time); past one step it gets a thin leader back to where it was
+  { const box=e=>{ const q=textBox(e); return [Math.min(...q.map(p=>p[0]))-0.25,Math.min(...q.map(p=>p[1]))-0.25,Math.max(...q.map(p=>p[0]))+0.25,Math.max(...q.map(p=>p[1]))+0.25]; };
+    const hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3], placed=[];
+    for(const e of it){ if(e.t!=='t') continue;
+      let bx=box(e);
+      if(placed.some(p=>hit(p,bx))){ const a=e.rot*Math.PI/180, ux=-Math.sin(a), uy=-Math.cos(a), x0=e.x, y0=e.y;
+        let ok=false;
+        for(const d of [1.6,-1.6,3.2,-3.2,4.8,-4.8,6.4,-6.4]){ e.x=x0+ux*d; e.y=y0+uy*d; bx=box(e); if(!placed.some(p=>hit(p,bx))){ ok=true;
+            if(Math.abs(d)>1.7){ const c=Math.cos(a), sn=-Math.sin(a), mx=x0+c*e.w/2, my=y0+sn*e.w/2; it.push({t:'p',pts:[[mx,my],[mx+ux*(d-(d>0?1.4:-0.2)),my+uy*(d-(d>0?1.4:-0.2))]],close:false,s:0,f:null,w:FS.dw*0.7,d:null}); }
+            break; } }
+        if(!ok){ e.x=x0; e.y=y0; bx=box(e); } }
+      placed.push(bx); } }
+  // the drawing's own extent (before the frame and title block): the on-screen view shows just this
+  const dbb=[1e9,1e9,-1e9,-1e9]; for(const e of it){ const pts=e.t==='p'? e.pts : textBox(e); for(const [x,y] of pts){ dbb[0]=Math.min(dbb[0],x); dbb[1]=Math.min(dbb[1],y); dbb[2]=Math.max(dbb[2],x); dbb[3]=Math.max(dbb[3],y); } }
   // ---- frame
   const F={l:pg.fl,r:pg.fr,t:pg.ft,b:pg.fb}, tb=F.b-FS.tb;
   poly([[F.l,F.t],[F.r,F.t],[F.r,F.b],[F.l,F.b]],{w:0.35});
@@ -2349,14 +2392,14 @@ function felesaSheet(R, meta={}){
   ln(xB,tb+17,F.r,tb+17,{w:FS.dw});
   tx((xB+F.r)/2,tb+25.5,meta.number||T('PRELIMINARY','טיוטה'),{size:FS.txt+3,b:true,hs:0.9});
   tx((xB+F.r)/2,F.b-1.4,T('Edition 0','מהדורה 0'),{size:FS.sm-0.5});
-  return {w:pg.pw,h:pg.ph,land,items:it,den,lang:he?'he':'en'};
+  return {w:pg.pw,h:pg.ph,land,items:it,den,lang:he?'he':'en',dbb};
 }
 // text knock-out: a white box under each text, drawn after all lines, so no line / arrow / extension line crosses a number
 function textBox(e){ const a=e.rot*Math.PI/180, dx=Math.cos(a), dy=-Math.sin(a), ux=-Math.sin(a), uy=-Math.cos(a), cap=e.size*0.3528*0.74;
   const P0=[e.x-dx*0.35-ux*0.3, e.y-dy*0.35-uy*0.3], L=e.w+0.7, H=cap+0.6;
   return [P0,[P0[0]+dx*L,P0[1]+dy*L],[P0[0]+dx*L+ux*H,P0[1]+dy*L+uy*H],[P0[0]+ux*H,P0[1]+uy*H]]; }
 const sheetOrder=sh=>[...sh.items.filter(e=>e.t==='p'), ...sh.items.filter(e=>e.t==='i'), ...sh.items.filter(e=>e.t==='t')];
-function felesaSVG(sh){
+function felesaSVG(sh,opt={}){
   const g=v=>v==null?'none':Array.isArray(v)?`rgb(${v.join(',')})`:`rgb(${v},${v},${v})`, out=[];
   for(const e of sheetOrder(sh)){
     if(e.t==='i'){ if(e.src) out.push(`<image href="${e.src}" x="${e.x.toFixed(2)}" y="${e.y.toFixed(2)}" width="${e.w.toFixed(2)}" height="${e.h.toFixed(2)}"/>`); continue; }
@@ -2366,7 +2409,11 @@ function felesaSVG(sh){
     else { const fsz=e.size*0.3528, esc=e.str.replace(/&/g,'&amp;').replace(/</g,'&lt;');
       out.push(`<g transform="translate(${e.x.toFixed(3)} ${e.y.toFixed(3)}) rotate(${-e.rot}) scale(${e.hs} 1)"><text x="0" y="0" font-size="${fsz.toFixed(3)}" font-family="${sh.lang==='he'?'Heebo, Arial':'Helvetica, Arial'}, sans-serif" ${e.b?'font-weight="700"':''} fill="#000">${esc}</text>${e.u?`<line x1="0" y1="${(fsz*0.18).toFixed(3)}" x2="${(e.w/e.hs).toFixed(3)}" y2="${(fsz*0.18).toFixed(3)}" stroke="#000" stroke-width="0.2"/>`:''}</g>`); }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sh.w} ${sh.h}" width="${sh.w}mm" height="${sh.h}mm" style="background:#fff"><rect width="${sh.w}" height="${sh.h}" fill="#fff"/>${out.join('')}</svg>`;
+  const vb=opt.crop&&sh.dbb? [sh.dbb[0]-3,sh.dbb[1]-3,sh.dbb[2]-sh.dbb[0]+6,sh.dbb[3]-sh.dbb[1]+6] : [0,0,sh.w,sh.h];
+  return `<svg xmlns="http://www.w3.org/2000/svg" direction="ltr" viewBox="${vb.map(v=>v.toFixed(1)).join(' ')}" ${opt.crop?'width="100%" class="fsheet"':`width="${sh.w}mm" height="${sh.h}mm"`} style="background:#fff"><rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="#fff"/>${out.join('')}</svg>`;
+}
+// the on-screen plan: the same drawing as page 1 of the PDF (Hebrew), cropped to the drawing
+function sheetView(R,lang='he'){ try{ return felesaSVG(felesaSheet(R,{lang}),{crop:true}); }catch(e){ return drawPlan(R); } 
 }
 function felesaPDF(doc, sh){
   const he=sh.lang==='he'; pdfHebrew(doc);
@@ -2461,7 +2508,7 @@ function show(I){
       <div class="kpi"><span>פתח אור</span><b><span class="num">${o.clear}</span><small>${dtName(o.dt)}${o.dt!=='C'?' · '+(o.doorDir==='R'?'לימין':'לשמאל'):''}</small></b></div>
       <div class="kpi"><span>${o.L==='NF'?'משקולת / פס בודד':'מרווח צד'}</span><b><span class="num">${o.gapCwt} / ${o.gapOth}</span></b></div>
     </div>
-    <div class="lite-plan vplan"><span class="vtag">מבט על</span>${drawPlan(singleR(o))}</div>
+    <div class="lite-plan vplan"><span class="vtag">מבט על</span>${sheetView(singleR(o))}</div>
     ${notes.length?`<ul class="notes lite-notes">${notes.map(n=>`<li class="${n.c}">${n.t}</li>`).join('')}</ul>`:''}
     <div class="export"><input id="PRJ" placeholder="שם פרויקט (לשרטוט)" value="${(LITE_PRJ||'').replace(/"/g,'&quot;')}"><button type="button" class="go" id="pdf">PDF באנגלית</button><button type="button" class="go" id="pdfHe">PDF בעברית</button><span class="pdfst" id="pdfst" aria-live="polite">שרטוט באנגלית בפורמט של פלסה</span></div>
   </article>`;
