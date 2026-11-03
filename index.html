@@ -1523,6 +1523,12 @@ function browserSave(name,data){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
 }
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 /* ---------- result model: one or two lifts in one shaft ---------- */
 // R = {W, D, I, lifts:[{o, x0}], openings:[{a,b,cutA,cutB}], beam:{x,w}|null, duplex:bool}
 function singleR(o){

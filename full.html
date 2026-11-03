@@ -628,7 +628,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
     </div>
     <p class="sec-t">מדידות לפי קומה <span class="hint">כמו בטופס המדידה: D ו-H מהקיר הצדדי עד העמוד, כולל הכתף</span></p>
     <div class="tri-rows" id="triRows"></div>
-    <div class="tri-btns"><button type="button" id="triAdd">+ קומה</button><button type="button" id="triDel">- קומה אחרונה</button><button type="button" id="triDemo">טען את נאות פרס בניין 1</button></div>
+    <div class="tri-btns"><button type="button" id="triAdd">+ קומה</button><button type="button" id="triDel">- קומה אחרונה</button><button type="button" id="triDemo">טען דוגמה</button></div>
   </div>
 </form>
 <section class="results" id="triOut" aria-live="polite"></section>
@@ -1282,6 +1282,12 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear,q),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -3036,10 +3042,7 @@ async function importMeasurement(f,st){
 // (incl. the shoulder), E right pillar, F middle opening, G left pillar, H left wall to the left pillar (incl. the
 // shoulder), I left shoulder. x runs from the left wall, as seen from the lobby.
 const TRI_NAMES=['שמאל','אמצע','ימין'];
-const TRI_DEMO={ // Neot Peres, lot 226, building 1 - first measurement 01/11/2026 (floors 2-3 look mis-measured: off by 72/84 mm)
-  name:'נאות פרס 226 בניין 1',
-  floors:[[-3,2093,6107,308,1614,760,1302,784,1657,359,1],[-2,2112,6101,307,1667,750,1296,750,1658,361,1],[-1,2044,6125,398,1686,726,1305,770,1629,369,1],
-    [0,2092,6140,371,1670,775,1306,740,1621,312,1],[1,2075,6117,480,1766,670,1309,715,1676,370,1],[2,2081,6139,294,1733,660,1435,646,1737,298,0],[3,2081,6140,301,1744,660,1436,630,1754,307,0]]};
+const TRI_DEMO={name:'',floors:[[0,2100,6100,300,1700,650,1400,650,1700,300,1],[1,2100,6100,300,1700,650,1400,650,1700,300,1]]};
 const TRI_GUIDE={sh:300, op:1400, pil:650, W:6100};   // design front: 300 | 1400 | 650 | 1400 | 650 | 1400 | 300
 // edges of one floor: walls, the three openings and the two pillars. Left part chained from the left wall, right part from
 // the right wall; where the two chains disagree (the row does not add up to B) the middle opening takes the narrower reading.
