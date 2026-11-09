@@ -1098,7 +1098,10 @@ function carEnvelope(I,L,mode,q){
 
 // place a door of clear width cl on an axis: car spans [a,b], wall opening spans [oa,ob].
 // dir: 'A' = flush to a (panels stack toward b), 'B' = flush to b, 'C' = centred, 'auto' = best of A/B.
-function placeDoor(cl,a,b,oa,ob,dt,dir,jmin){
+// frame rule (Idan): centred between the shoulders first (equal gaps); only when there is more than 100 clear on BOTH
+// sides may the frame move toward the car's own door position (car centre / standard panels), keeping 100 each side.
+// The landing sill must stay inside the side walls (W given).
+function placeDoor(cl,a,b,oa,ob,dt,dir,jmin,W){
   const tries = dt==='C' ? ['C'] : dir==='auto' ? ['A','B'] : [dir];
   let best=null;
   for(const d of tries){
@@ -1106,8 +1109,12 @@ function placeDoor(cl,a,b,oa,ob,dt,dir,jmin){
     if(d==='C'){ lo=hi=Math.round(a+(b-a-cl)/2); }
     else if(d==='A'){ lo=a+P.flush[0]; hi=Math.max(lo, b-cl-P.stackMin); }   // frame may shift toward the stacking side
     else { hi=b-P.flush[0]-cl; lo=Math.min(hi, a+P.stackMin); }
-    const ideal=oa+(ob-oa-cl)/2;
-    const o1=Math.round(Math.min(hi,Math.max(lo,ideal)));
+    const ideal=oa+(ob-oa-cl)/2, bLo=oa+jmin+100, bHi=ob-jmin-100-cl;
+    let target=ideal;
+    if(bLo<=bHi){ const pref = d==='A'? lo : d==='B'? hi : a+(b-a-cl)/2; target=Math.min(bHi,Math.max(bLo,pref)); }
+    if(W){ const st=dt==='T3'? cl*2/3+50 : cl/2+50, sLo=d==='A'?15:st, sHi=W-cl-(d==='B'?15:st);   // sill ends (measured Felesa lengths) inside the walls
+      if(sLo<=sHi) target=Math.min(sHi,Math.max(sLo,target)); }
+    const o1=Math.round(Math.min(hi,Math.max(lo,target)));
     const ja=o1-oa, jb=ob-o1-cl, cuts=[];
     if(ja<jmin) cuts.push({end:'A',mm:jmin-ja});
     if(jb<jmin) cuts.push({end:'B',mm:jmin-jb});
@@ -1195,13 +1202,14 @@ function build(I,L,side,mode,c){
   const gaps=[]; for(let g=gapRange[0]; g<=gapRange[1]; g+=10) gaps.push(g); if(!gaps.includes(gapCwt)) gaps.push(gapCwt);
   let best=null;
   for(const g of gaps){
-    const cL=gapToCarL(g), pl=cl=>placeDoor(cl,cL,cL+extW,oL,oR,dt,dirPref,P.jambMin);
+    const cL=gapToCarL(g), pl=cl=>placeDoor(cl,cL,cL+extW,oL,oR,dt,dirPref,P.jambMin,I.W);
     let d;
     if(I.clear) d=pl(I.clear);
     else { const all=ok.map(pl); d = all.find(v=>!v.cuts.length && canCtrl(v)) || all.find(v=>!v.cuts.length) || all[all.length-1]; }
     const cutMM=d.cuts.reduce((t,k)=>t+k.mm,0);
     const sg = Math.min(Math.min(d.ja,d.jb)-P.jamb, P.shGap);
-    const sc = -cutMM*100 + d.cl*10 + (canCtrl(d)?500:0) - Math.abs(d.ja-d.jb)*((I.SL||I.SR)?5:0.5) - Math.abs(g-gapCwt)*2;   // no shoulders: no wall opening to centre in yet   // frame centred in the opening: equal gaps beat 50 on one side only
+    const gMin=Math.min(d.ja,d.jb)-P.jamb, sl=dt!=='T3'? sillSpan(d.o1,d.cl,dt,d.dir==='C'?'C':d.dir==='A'?'R':'L').land : [0,0], sillIn=Math.max(0,-sl[0])+Math.max(0,sl[1]-I.W);
+    const sc = -cutMM*100 - sillIn*100 + d.cl*10 + (canCtrl(d)?500:0) - (gMin>=100? 0 : Math.abs(d.ja-d.jb)*5) - Math.abs(g-gapCwt)*2;   // frame centred between the shoulders unless both gaps exceed 100; landing sill never into a wall
     if(!best||sc>best.sc) best={sc,g,d,cL};
   }
   gapCwt=best.g; gapOth=(L==='NF'?I.W-dbgCar:I.W-extW)-gapCwt; carL=best.cL;
@@ -1216,7 +1224,7 @@ function build(I,L,side,mode,c){
     notes.push({t:`המשקוף הוזז ידנית ${Math.abs(n-best.d.o1)} מ"מ ${n>best.d.o1?'ימינה':'שמאלה'}`,c:''}); }
   if(!I.clear){
     const bigger = ok.filter(cl=>cl>d.cl).pop();
-    if(bigger && !d.cuts.length){ const b2=placeDoor(bigger,carL,carR,oL,oR,dt,dirPref,P.jambMin);
+    if(bigger && !d.cuts.length){ const b2=placeDoor(bigger,carL,carR,oL,oR,dt,dirPref,P.jambMin,I.W);
       if(b2.cuts.length) notes.push({t:`עם ניסור כתפיים (${b2.cuts.map(k=>sideName(k.end==='A'?'L':'R')+' '+k.mm).join(', ')} מ"מ) אפשר פתח ${bigger}`,c:''});
       else notes.push({t:`פתח ${bigger} אפשרי עם ארון פיקוד במקום פיקוד במשקוף`,c:''}); }
   }
@@ -1299,6 +1307,18 @@ function build(I,L,side,mode,c){
   return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear,q),score,front,I};
 }
 
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// standalone HTML (no Claude viewer): a regular browser download
+function browserSave(name,data){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
