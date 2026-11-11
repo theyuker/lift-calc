@@ -829,7 +829,7 @@ input.calc{background:var(--surface-2);color:var(--muted)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const PROJECTS = /*DATA*/[];
-const APP_VERSION='v26';
+const APP_VERSION='v27';
 
 /* ---------- parameters (derived from the drawings; edit here) ---------- */
 const P = {
@@ -1125,710 +1125,255 @@ function placeDoor(cl,a,b,oa,ob,dt,dir,jmin,W){
   return best;
 }
 
+/* ---------- build one option: a car size (c) in a layout (NF / RS), counterweight side and clearance mode ----------
+   The stages run in this order and share one state object `s` (the notes keep the same order as the user sees them):
+     carDepth -> sidesNF | sidesRS -> settingNotes -> frontDoor -> manualFrameShift -> doorNotes -> frameController
+     -> frameNotes -> counterweightDepth -> secondEntrance -> result
+   A stage that finds the option impossible returns false, and build() returns null. */
 function build(I,L,side,mode,c){
-  const x = mode==='x', notes=[];
-  let iw=c.iw, id=c.id;
-  const area = iw*id/1e6;
+  const s=carDepth(I,L,mode,c); if(!s) return null;
+  if(!(L==='NF'? sidesNF(s,I,side,c) : sidesRS(s,I,side))) return null;
+  settingNotes(s,I,L);
+  if(!frontDoor(s,I,L,side)) return null;
+  manualFrameShift(s,I);
+  doorNotes(s,I,L);
+  frameController(s,I);
+  frameNotes(s,I);
+  counterweightDepth(s,I,L);
+  secondEntrance(s,I,side);
+  return buildResult(s,I,L,side,mode,c);
+}
+
+// load class, car exterior, and where the car sits along the depth (back gap exact, front takes the rounding)
+function carDepth(I,L,mode,c){
+  const x = mode==='x', iw=c.iw, id=c.id, area=iw*id/1e6;
   let q = loadFor(area); if(!q) return null;
   if(c.kind==='std'||c.kind==='sdbg') q=c.std.q;
   if(L==='RS' && q>1000) return null;
   const extW=iw+P.extW, extD=id+P.extD;
-  let dbgCar, dbgCwt, gapCwt, gapOth, carL, railOff=0, cwtList=null;
   let front = frontMin(I,x);
   // depth: the back gap is what the user set (default 50). The car depth goes in 10 mm steps, so a remainder under 10
   // goes to the front (Felesa drawings: back 50, front 240/220/210). A car smaller than the maximum leaves its spare depth at the back (Felesa: Sokolov back 150).
   const backT = backOf(I), front0 = front;
   let cy = I.D-front-extD;
   if(cy-backT>0 && cy-backT<10){ cy=backT; front=I.D-cy-extD; }
-  const fullD = cy===backT;
-  const wantC = I.SL + (I.W-I.SL-I.SR)/2;
-  if(L==='NF'){
-    const k=clr('NF',q);
-    const rail = railOf(I,k);
-    dbgCar = c.std ? Math.max(c.std.dc, extW+2*rail) : extW + 2*rail;
-    if(c.std && dbgCar + cwtOf(I,k,x) + othOf(I,k,x) > I.W) dbgCar = extW+2*rail;
-    if(rail<k.rail) notes.push({t:`מרחק קבינה-מסילה ${rail} (סטנדרט ${k.rail})`,c:'warn'});
-    const rest = I.W - dbgCar;
-    const minC = cwtOf(I,k,x), minO = othOf(I,k,x);
-    if(rest < minC+minO) return null;
-    // preferred split of the spare width: away from the minimums - the CWT side to ~320, the rest to the single rail
-    // (e.g. 580 -> 320 / 260, not 290 / 290); below the ideal 320 + 140 both give way in proportion
-    const idC=Math.max(minC,k.cwt+10), idO=Math.max(minO,k.oth);
-    let tC = rest>=idC+idO ? idC : minC + (rest-minC-minO)*(idC-minC)/Math.max(1,(idC-minC)+(idO-minO));
-    gapCwt = Math.max(minC, Math.min(rest-minO, Math.round(tC/10)*10)); gapOth = rest-gapCwt;
-    var gapRange=[minC, rest-minO], gapToCarL = g => side==='L' ? g + (dbgCar-extW)/2 : I.W - g - dbgCar + (dbgCar-extW)/2;
-    cwtList = c.std?[c.std.dw,...CWT_OPTS(q).filter(v=>v!==c.std.dw)]:CWT_OPTS(q);
-    dbgCwt = cwtList.find(v => v + P.NF.cwtDepthReserve <= I.D);
-    if(q>1000){ dbgCwt = 1400; notes.push({t:'GRL4: מבוסס על 2 פרויקטים בלבד במאגר - לאמת מול Felesa.',c:'warn'}); }
-    else if(!dbgCwt) return null;
-    else if(dbgCwt!==cwtList[0]) notes.push({t:`DBG משקולת מקוצר ${dbgCwt} (סטנדרט ${cwtList[0]}) בגלל עומק הפיר`,c:'warn'});
-    railOff=(dbgCar-extW)/2;
-    carL = side==='L' ? gapCwt + railOff : gapOth + railOff;
-  } else {
-    const minO = I.en==='90'?P.side90:(x?P.RS.othX:P.RS.oth);
-    const rest=I.W-extW;
-    if(rest-P.RS.side<minO) return null;
-    const ideal = side==='L' ? wantC - extW/2 : I.W - wantC - extW/2;
-    gapCwt=Math.round(Math.min(rest-minO, Math.max(P.RS.side, ideal))); gapOth=rest-gapCwt;
-    var gapRange=[P.RS.side, rest-minO], gapToCarL = g => side==='L' ? g : I.W - g - extW;
-    dbgCar = Math.max(520, extD-430); dbgCwt=dbgCar+46;
-    carL = side==='L' ? gapCwt : gapOth;
-    notes.push({t:'רוגזק - אפשרות משנית.',c:''});
-    if(q>630) notes.push({t:'רוגזק מעל 630 ק"ג (GRL2) - פרויקט אחד בלבד במאגר, לאמת מול Felesa',c:'warn'});
-  }
+  return {x, iw, id, area, q, extW, extD, front, front0, backT, cy, fullD: cy===backT, wantC: I.SL + (I.W-I.SL-I.SR)/2,
+    notes: [], railOff: 0, cwtList: null};
+}
+
+// normal frame: car DBG, the two side clearances (spare width away from the minimums), CWT DBG by the shaft depth
+function sidesNF(s,I,side,c){
+  const k=clr('NF',s.q), rail=railOf(I,k), x=s.x, extW=s.extW;
+  s.dbgCar = c.std ? Math.max(c.std.dc, extW+2*rail) : extW + 2*rail;
+  if(c.std && s.dbgCar + cwtOf(I,k,x) + othOf(I,k,x) > I.W) s.dbgCar = extW+2*rail;
+  if(rail<k.rail) s.notes.push({t:`מרחק קבינה-מסילה ${rail} (סטנדרט ${k.rail})`,c:'warn'});
+  const rest = I.W - s.dbgCar, minC = cwtOf(I,k,x), minO = othOf(I,k,x);
+  if(rest < minC+minO) return false;
+  // preferred split of the spare width: away from the minimums - the CWT side to ~320, the rest to the single rail
+  // (e.g. 580 -> 320 / 260, not 290 / 290); below the ideal 320 + 140 both give way in proportion
+  const idC=Math.max(minC,k.cwt+10), idO=Math.max(minO,k.oth);
+  const tC = rest>=idC+idO ? idC : minC + (rest-minC-minO)*(idC-minC)/Math.max(1,(idC-minC)+(idO-minO));
+  s.gapCwt = Math.max(minC, Math.min(rest-minO, Math.round(tC/10)*10)); s.gapOth = rest-s.gapCwt;
+  s.gapRange=[minC, rest-minO];
+  const dbgCar=s.dbgCar; s.gapToCarL = g => side==='L' ? g + (dbgCar-extW)/2 : I.W - g - dbgCar + (dbgCar-extW)/2;
+  s.cwtList = c.std?[c.std.dw,...CWT_OPTS(s.q).filter(v=>v!==c.std.dw)]:CWT_OPTS(s.q);
+  s.dbgCwt = s.cwtList.find(v => v + P.NF.cwtDepthReserve <= I.D);
+  if(s.q>1000){ s.dbgCwt = 1400; s.notes.push({t:'GRL4: מבוסס על 2 פרויקטים בלבד במאגר - לאמת מול Felesa.',c:'warn'}); }
+  else if(!s.dbgCwt) return false;
+  else if(s.dbgCwt!==s.cwtList[0]) s.notes.push({t:`DBG משקולת מקוצר ${s.dbgCwt} (סטנדרט ${s.cwtList[0]}) בגלל עומק הפיר`,c:'warn'});
+  s.railOff=(s.dbgCar-extW)/2;
+  s.carL = side==='L' ? s.gapCwt + s.railOff : s.gapOth + s.railOff;
+  return true;
+}
+
+// rucksack: rails + CWT on one wall, the free side opposite
+function sidesRS(s,I,side){
+  const minO = I.en==='90'?P.side90:(s.x?P.RS.othX:P.RS.oth), extW=s.extW, rest=I.W-extW;
+  if(rest-P.RS.side<minO) return false;
+  const ideal = side==='L' ? s.wantC - extW/2 : I.W - s.wantC - extW/2;
+  s.gapCwt=Math.round(Math.min(rest-minO, Math.max(P.RS.side, ideal))); s.gapOth=rest-s.gapCwt;
+  s.gapRange=[P.RS.side, rest-minO]; s.gapToCarL = g => side==='L' ? g : I.W - g - extW;
+  s.dbgCar = Math.max(520, s.extD-430); s.dbgCwt=s.dbgCar+46;
+  s.carL = side==='L' ? s.gapCwt : s.gapOth;
+  s.notes.push({t:'רוגזק - אפשרות משנית.',c:''});
+  if(s.q>630) s.notes.push({t:'רוגזק מעל 630 ק"ג (GRL2) - פרויקט אחד בלבד במאגר, לאמת מול Felesa',c:'warn'});
+  return true;
+}
+
+// notes that explain the menu settings in effect (frame position, back gap, entered clearances, chassis gap)
+function settingNotes(s,I,L){
+  const notes=s.notes, front=s.front;
   if(I.en!=='180' && I.fp==='out') notes.push({t:`משקופים מחוץ לפיר - ${fpText(front)}`+(canPushOut(I)?'':`
 הפתח בין הכתפיים צר: לבדוק שהדלת והמשקוף נכנסים`),c:canPushOut(I)?'':'warn'});
   if(I.en!=='180' && I.fp==='in') notes.push({t:`משקופים בתוך הפיר - ${fpText(front)}`,c:''});
   if(I.en!=='180'){ const set=I.bk!=null&&I.bk!=='';
-    if(cy>backT) notes.push({t:`מרווח קיר אחורי ${cy} (${set?'הוגדר':'ברירת מחדל'} ${backT}) - הקבינה קצרה מהמקסימום, העודף נשאר מאחור`,c:''});
-    else if(set) notes.push({t:`מרווח קיר אחורי ${backT}`,c:''});
-    if(front>front0) notes.push({t:`חזית ${front} - ${front-front0} מ"מ עודף מעיגול עומק התא ל-10 מ"מ`,c:''}); }
-  if(I.en!=='180' && I.fp==='custom'){ const inS=Math.max(0,Math.min(P.doorZone.landDoor,front-P.doorZone.carDoor)); notes.push({t:`מיקום משקופים מותאם - ${fpText(front)}`,c:front<P.frontOut?'warn':''}); }
-  if(L==='NF' && I.mx==='custom'){ const k0=clr('NF',q); if(+I.gc>0&&+I.gc<k0.cwtX || +I.go>0&&+I.go<k0.othX) notes.push({t:`הוזנו חיזוקים ${I.gc??'-'} / ${I.go??'-'} - המינימום ${k0.cwtX} / ${k0.othX}, חושב לפי המינימום`,c:'warn'}); }
-  if(L==='NF' && I.cg!=='std') notes.push({t:`מרווח קבינה-שאסי מצומצם ${railOf(I,clr('NF',q))} בכל צד (סטנדרט ${clr('NF',q).rail})`,c:'warn'});
+    if(s.cy>s.backT) notes.push({t:`מרווח קיר אחורי ${s.cy} (${set?'הוגדר':'ברירת מחדל'} ${s.backT}) - הקבינה קצרה מהמקסימום, העודף נשאר מאחור`,c:''});
+    else if(set) notes.push({t:`מרווח קיר אחורי ${s.backT}`,c:''});
+    if(front>s.front0) notes.push({t:`חזית ${front} - ${front-s.front0} מ"מ עודף מעיגול עומק התא ל-10 מ"מ`,c:''}); }
+  if(I.en!=='180' && I.fp==='custom') notes.push({t:`מיקום משקופים מותאם - ${fpText(front)}`,c:front<P.frontOut?'warn':''});
+  if(L==='NF' && I.mx==='custom'){ const k0=clr('NF',s.q); if(+I.gc>0&&+I.gc<k0.cwtX || +I.go>0&&+I.go<k0.othX) notes.push({t:`הוזנו חיזוקים ${I.gc??'-'} / ${I.go??'-'} - המינימום ${k0.cwtX} / ${k0.othX}, חושב לפי המינימום`,c:'warn'}); }
+  if(L==='NF' && I.cg!=='std') notes.push({t:`מרווח קבינה-שאסי מצומצם ${railOf(I,clr('NF',s.q))} בכל צד (סטנדרט ${clr('NF',s.q).rail})`,c:'warn'});
+}
 
-  // ---- front landing door: try every car position (10 mm steps) and keep the best door
+// front landing door: try every car position (10 mm steps across the clearance range) and keep the best door + frame
+function frontDoor(s,I,L,side){
   const dt=I.dt;
-  const dirPref = dt==='C'?'C': side==='R'?'A':'B';   // rule: opens towards the counterweight side (opens right -> stacks right -> flush left = A)
-  const carMax = extW - P.carDoor[dt];
-  const oL=I.SL, oR=I.W-I.SR;
+  s.dt=dt;
+  s.dirPref = dt==='C'?'C': side==='R'?'A':'B';   // rule: opens towards the counterweight side (opens right -> stacks right -> flush left = A)
+  const carMax = s.extW - P.carDoor[dt];
+  s.oL=I.SL; s.oR=I.W-I.SR;
   const fits = cl => cl<=carMax && P.shaftDoor[dt](cl) <= I.W;
-  const ok=P.clears.filter(fits);
-  if(I.clear ? !fits(I.clear) : !ok.length) return null;
-  // frame controller: always in the frame on the side opposite the opening direction (opens right -> left frame)
-  const canCtrl = v => { if(I.ct!=='frame' || dt==='C') return true; const L_=v.dir==='A', need=P.jambCtrl-(L_?v.ja:v.jb); if(need<=0) return true;
-    const n1=v.o1+(L_?need:-need), other=(L_?v.jb:v.ja)-need;
-    return n1>=v.lo && n1<=v.hi && other>=P.jambMin; };
-  const gaps=[]; for(let g=gapRange[0]; g<=gapRange[1]; g+=10) gaps.push(g); if(!gaps.includes(gapCwt)) gaps.push(gapCwt);
+  s.ok=P.clears.filter(fits);
+  if(I.clear ? !fits(I.clear) : !s.ok.length) return false;
+  s.canCtrl = v => ctrlFits(I,dt,v);
+  const gaps=[]; for(let g=s.gapRange[0]; g<=s.gapRange[1]; g+=10) gaps.push(g); if(!gaps.includes(s.gapCwt)) gaps.push(s.gapCwt);
   let best=null;
   for(const g of gaps){
-    const cL=gapToCarL(g), pl=cl=>placeDoor(cl,cL,cL+extW,oL,oR,dt,dirPref,P.jambMin,I.W);
+    const cL=s.gapToCarL(g), pl=cl=>placeDoor(cl,cL,cL+s.extW,s.oL,s.oR,dt,s.dirPref,P.jambMin,I.W);
     let d;
     if(I.clear) d=pl(I.clear);
-    else { const all=ok.map(pl); d = all.find(v=>!v.cuts.length && canCtrl(v)) || all.find(v=>!v.cuts.length) || all[all.length-1]; }
-    const cutMM=d.cuts.reduce((t,k)=>t+k.mm,0);
-    const sg = Math.min(Math.min(d.ja,d.jb)-P.jamb, P.shGap);
-    const gMin=Math.min(d.ja,d.jb)-P.jamb, sl=dt!=='T3'? sillSpan(d.o1,d.cl,dt,d.dir==='C'?'C':d.dir==='A'?'R':'L').land : [0,0], sillIn=Math.max(0,-sl[0])+Math.max(0,sl[1]-I.W);
-    const sc = -cutMM*100 - sillIn*100 + d.cl*10 + (canCtrl(d)?500:0) - (gMin>=100? 0 : Math.abs(d.ja-d.jb)*5) - Math.abs(g-gapCwt)*2;   // frame centred between the shoulders unless both gaps exceed 100; landing sill never into a wall
+    else { const all=s.ok.map(pl); d = all.find(v=>!v.cuts.length && s.canCtrl(v)) || all.find(v=>!v.cuts.length) || all[all.length-1]; }
+    const sc=doorScore(s,I,d,g);
     if(!best||sc>best.sc) best={sc,g,d,cL};
   }
-  gapCwt=best.g; gapOth=(L==='NF'?I.W-dbgCar:I.W-extW)-gapCwt; carL=best.cL;
-  const carR = carL+extW; let d=best.d;
-  if(+I.fs){   // the user moves the frame sideways (+ right): the car front panels change; limited by the minimum panels
-    const pm=P.panelMin, R_=d.dir==='A', C_=d.dir==='C', minL=C_?pm.centre:R_?pm.close:pm.stack, minR=C_?pm.centre:R_?pm.stack:pm.close;
-    const lo=carL+minL, hi=carR-d.cl-minR, want=d.o1+(+I.fs), n=Math.round(Math.min(hi,Math.max(lo,want)));
-    if(n!==want) notes.push({t:`הזזת המשקוף מוגבלת: אפשר ${Math.round(d.o1-lo)} שמאלה עד ${Math.round(hi-d.o1)} ימינה (מזוזה מינימלית ${minL} / ${minR})`,c:'warn'});
-    const ja=n-oL, jb=oR-n-d.cl, cuts=[];
-    if(ja<P.jambMin) cuts.push({end:'A',mm:P.jambMin-ja}); if(jb<P.jambMin) cuts.push({end:'B',mm:P.jambMin-jb});
-    d={...d,o1:n,ja:Math.max(ja,P.jambMin),jb:Math.max(jb,P.jambMin),cuts,lo:n,hi:n};
-    notes.push({t:`המשקוף הוזז ידנית ${Math.abs(n-best.d.o1)} מ"מ ${n>best.d.o1?'ימינה':'שמאלה'}`,c:''}); }
+  s.gapCwt=best.g; s.gapOth=(L==='NF'?I.W-s.dbgCar:I.W-s.extW)-s.gapCwt; s.carL=best.cL;
+  s.carR=s.carL+s.extW; s.d=best.d; s.d0=best.d;
+  return true;
+}
+// frame controller: always in the frame on the side opposite the opening direction (opens right -> left frame)
+function ctrlFits(I,dt,v){
+  if(I.ct!=='frame' || dt==='C') return true;
+  const L_=v.dir==='A', need=P.jambCtrl-(L_?v.ja:v.jb); if(need<=0) return true;
+  const n1=v.o1+(L_?need:-need), other=(L_?v.jb:v.ja)-need;
+  return n1>=v.lo && n1<=v.hi && other>=P.jambMin;
+}
+// score of one car position: no cutting > landing sill inside the walls > wider door > frame controller fits >
+// frame centred between the shoulders (unless both gaps exceed 100) > close to the preferred clearance split
+function doorScore(s,I,d,g){
+  const dt=s.dt, cutMM=d.cuts.reduce((t,k)=>t+k.mm,0);
+  const gMin=Math.min(d.ja,d.jb)-P.jamb, sl=dt!=='T3'? sillSpan(d.o1,d.cl,dt,d.dir==='C'?'C':d.dir==='A'?'R':'L').land : [0,0], sillIn=Math.max(0,-sl[0])+Math.max(0,sl[1]-I.W);
+  return -cutMM*100 - sillIn*100 + d.cl*10 + (s.canCtrl(d)?500:0) - (gMin>=100? 0 : Math.abs(d.ja-d.jb)*5) - Math.abs(g-s.gapCwt)*2;
+}
+
+// the user moves the frame sideways (+ right): the car front panels change; limited by the minimum panels
+function manualFrameShift(s,I){
+  if(!+I.fs) return;
+  const d=s.d, pm=P.panelMin, R_=d.dir==='A', C_=d.dir==='C', minL=C_?pm.centre:R_?pm.close:pm.stack, minR=C_?pm.centre:R_?pm.stack:pm.close;
+  const lo=s.carL+minL, hi=s.carR-d.cl-minR, want=d.o1+(+I.fs), n=Math.round(Math.min(hi,Math.max(lo,want)));
+  if(n!==want) s.notes.push({t:`הזזת המשקוף מוגבלת: אפשר ${Math.round(d.o1-lo)} שמאלה עד ${Math.round(hi-d.o1)} ימינה (מזוזה מינימלית ${minL} / ${minR})`,c:'warn'});
+  const ja=n-s.oL, jb=s.oR-n-d.cl, cuts=[];
+  if(ja<P.jambMin) cuts.push({end:'A',mm:P.jambMin-ja}); if(jb<P.jambMin) cuts.push({end:'B',mm:P.jambMin-jb});
+  s.d={...d,o1:n,ja:Math.max(ja,P.jambMin),jb:Math.max(jb,P.jambMin),cuts,lo:n,hi:n};
+  s.notes.push({t:`המשקוף הוזז ידנית ${Math.abs(n-s.d0.o1)} מ"מ ${n>s.d0.o1?'ימינה':'שמאלה'}`,c:''});
+}
+
+// a wider door that would need cutting, clearances under the ideal, shoulder cuts for this door
+function doorNotes(s,I,L){
+  const d=s.d, notes=s.notes;
   if(!I.clear){
-    const bigger = ok.filter(cl=>cl>d.cl).pop();
-    if(bigger && !d.cuts.length){ const b2=placeDoor(bigger,carL,carR,oL,oR,dt,dirPref,P.jambMin,I.W);
+    const bigger = s.ok.filter(cl=>cl>d.cl).pop();
+    if(bigger && !d.cuts.length){ const b2=placeDoor(bigger,s.carL,s.carR,s.oL,s.oR,s.dt,s.dirPref,P.jambMin,I.W);
       if(b2.cuts.length) notes.push({t:`עם ניסור כתפיים (${b2.cuts.map(k=>sideName(k.end==='A'?'L':'R')+' '+k.mm).join(', ')} מ"מ) אפשר פתח ${bigger}`,c:''});
       else notes.push({t:`פתח ${bigger} אפשרי עם ארון פיקוד במקום פיקוד במשקוף`,c:''}); }
   }
-  if(L==='NF'){ const k=clr('NF',q);
-    if(gapCwt<k.cwt) notes.push({t:`מרווח משקולת ${gapCwt} - מתחת לאידיאל ${k.cwt}`,c:'warn'});
-    if(gapOth<k.oth) notes.push({t:`מרווח פס בודד ${gapOth} - מתחת לאידיאל ${k.oth}`,c:'warn'}); }
-  else if(gapOth<P.RS.oth) notes.push({t:`מרווח צד פנוי ${gapOth} - מתחת ל-${P.RS.oth}`,c:'warn'});
-  let o1=d.o1, jl=d.ja, jr=d.jb;
-  const clear=d.cl, cuts=d.cuts.map(k=>({side:k.end==='A'?'L':'R',mm:k.mm,from:k.end==='A'?I.SL:I.SR}));
-  for(const k of cuts) notes.push({t:`ניסור כתף ${sideName(k.side)}: ${k.mm} מ"מ (מ-${k.from} ל-${k.from-k.mm}) כדי לקבל משקוף ${P.jambMin}`,c:'cut'});
-  const doorDir = d.dir==='C'?'C': d.dir==='A'?'R':'L';
+  if(L==='NF'){ const k=clr('NF',s.q);
+    if(s.gapCwt<k.cwt) notes.push({t:`מרווח משקולת ${s.gapCwt} - מתחת לאידיאל ${k.cwt}`,c:'warn'});
+    if(s.gapOth<k.oth) notes.push({t:`מרווח פס בודד ${s.gapOth} - מתחת לאידיאל ${k.oth}`,c:'warn'}); }
+  else if(s.gapOth<P.RS.oth) notes.push({t:`מרווח צד פנוי ${s.gapOth} - מתחת ל-${P.RS.oth}`,c:'warn'});
+  s.o1=d.o1; s.jl=d.ja; s.jr=d.jb; s.clear=d.cl;
+  s.cuts=d.cuts.map(k=>({side:k.end==='A'?'L':'R',mm:k.mm,from:k.end==='A'?I.SL:I.SR}));
+  for(const k of s.cuts) notes.push({t:`ניסור כתף ${sideName(k.side)}: ${k.mm} מ"מ (מ-${k.from} ל-${k.from-k.mm}) כדי לקבל משקוף ${P.jambMin}`,c:'cut'});
+  s.doorDir = d.dir==='C'?'C': d.dir==='A'?'R':'L';
+}
 
-  // controller in frame: shift the door within its allowed range so one jamb reaches 180
-  const ctrl={type:I.ct, side:null, cut:0};
+// controller in the frame: shift the door within its allowed range so one jamb reaches 180 (top floor only); or the cabinet
+function frameController(s,I){
+  const dt=s.dt, d=s.d, notes=s.notes;
+  s.ctrl={type:I.ct, side:null, cut:0};
   if(I.ct==='frame'){
-    const sideL = dt==='C'? jl>=jr : doorDir==='R', need=P.jambCtrl-(sideL?jl:jr);   // opposite the opening direction
-    if(need>0 && !cuts.length && dt!=='C'){
-      const sh = sideL? need : -need, n1=o1+sh, other = sideL? jr-need : jl-need;
-      if(n1>=d.lo && n1<=d.hi && other>=P.jambMin){ o1=n1; jl+=sh; jr-=sh; }
+    const sideL = dt==='C'? s.jl>=s.jr : s.doorDir==='R', need=P.jambCtrl-(sideL?s.jl:s.jr);   // opposite the opening direction
+    if(need>0 && !s.cuts.length && dt!=='C'){
+      const sh = sideL? need : -need, n1=s.o1+sh, other = sideL? s.jr-need : s.jl-need;
+      if(n1>=d.lo && n1<=d.hi && other>=P.jambMin){ s.o1=n1; s.jl+=sh; s.jr-=sh; }
     }
-    ctrl.side = sideL ? 'L':'R';
-    const j = sideL? jl : jr;
-    if(j<P.jambCtrl){ ctrl.cut=P.jambCtrl-j; notes.push({t:`פיקוד במשקוף: בקומה העליונה בלבד לנסר כתף ${sideName(ctrl.side)} ${ctrl.cut} מ"מ (משקוף ${P.jambCtrl})`,c:'cut'}); }
-    else notes.push({t:`פיקוד במשקוף ה${sideName(ctrl.side)} בקומה העליונה (משקוף ${j})`,c:''});
+    s.ctrl.side = sideL ? 'L':'R';
+    const j = sideL? s.jl : s.jr;
+    if(j<P.jambCtrl){ s.ctrl.cut=P.jambCtrl-j; notes.push({t:`פיקוד במשקוף: בקומה העליונה בלבד לנסר כתף ${sideName(s.ctrl.side)} ${s.ctrl.cut} מ"מ (משקוף ${P.jambCtrl})`,c:'cut'}); }
+    else notes.push({t:`פיקוד במשקוף ה${sideName(s.ctrl.side)} בקומה העליונה (משקוף ${j})`,c:''});
   } else if(I.ct==='big') notes.push({t:'ארון פיקוד 450×250×2000 בקומה העליונה, עד 3 מ\' מהפיר',c:''});
   else notes.push({t:'ארון פיקוד קטן 160×150×2000 בקומה העליונה, צמוד לפיר',c:''});
-  const legL = Math.min(P.jamb,jl), legR = Math.min(P.jamb,jr);   // typical floor; a frame controller widens one leg to 180 on the top floor only
-  const shGapL = jl-legL, shGapR = jr-legR;
-  if(Math.min(legL,legR)<P.jamb && !(ctrl.type==='frame')) notes.push({t:`משקוף ${Math.min(legL,legR)} במקום ${P.jamb} (בפועל המשקוף 120 - אפשרי)`,c:'warn'});
-  if(I.ct==='big' && dt!=='C'){ const sh = doorDir==='R'? I.SR : I.SL;
-    if(sh<450) notes.push({t:`ארון גדול: בקומה העליונה נדרשת כתף 450 בצד הפתיחה (${sideName(doorDir)}) - יש ${sh}`,c:'warn'}); }
-  if(Math.min(shGapL,shGapR)<P.shGap) notes.push({t:`מרווח משקוף-כתף ${shGapL} / ${shGapR} מ"מ - פחות מ-${P.shGap}`,c:'warn'});
-  if(shGapL>300||shGapR>300) notes.push({t:`מרווח גדול בין המשקוף לכתף (${shGapL}/${shGapR}) - כיסוי/מילוי`,c:''});
-  const panL = o1-carL, panR = (carL+extW)-(o1+clear);   // car front panels, measured like Felesa drawings (from car exterior)
-  if(dt!=='C' && Math.min(panL,panR) > P.flush[1]) notes.push({t:`המשקוף הוזז ביחס לקבינה: מזוזות ${panL} / ${panR} (לא סטנדרטי)`,c:''});
+}
 
-  // ---- counterweight along the depth (Felesa rule): car rail axis, CWT DBG split around it
-  let railY=cy+extD/2, cwtTop=null, cwtBot=null;
-  if(L==='NF'){
-    railY = cy+extD-railAxis(extD,clear,q,I.en);
-    const pos = v => { const [b,f]=cwtSplit(v); return [railY-b, railY+f]; };
-    const pick = (cwtList||[dbgCwt]).filter(v=>v<=dbgCwt).find(v=>pos(v)[0]>=CWT_BACK_MIN);
-    if(pick && pick!==dbgCwt){ notes.push({t:`DBG משקולת ${pick} במקום ${dbgCwt} - עם מיקום פסי הקבינה לפי פלסה המשקולת לא נכנסת מאחור`,c:'warn'}); dbgCwt=pick; }
-    [cwtTop,cwtBot] = pos(dbgCwt);
-    if(cwtTop<CWT_BACK_MIN) notes.push({t:`פס המשקולת האחורי ${Math.round(cwtTop)} מ"מ מהקיר האחורי (בשרטוטי פלסה לפחות 160) - לבדוק מול Felesa`,c:'warn'});
-  }
+// frame legs, frame-to-shoulder gaps and the car front panels (measured like Felesa: from the car exterior)
+function frameNotes(s,I){
+  const notes=s.notes, dt=s.dt;
+  s.legL = Math.min(P.jamb,s.jl); s.legR = Math.min(P.jamb,s.jr);   // typical floor; a frame controller widens one leg to 180 on the top floor only
+  s.shGapL = s.jl-s.legL; s.shGapR = s.jr-s.legR;
+  if(Math.min(s.legL,s.legR)<P.jamb && !(s.ctrl.type==='frame')) notes.push({t:`משקוף ${Math.min(s.legL,s.legR)} במקום ${P.jamb} (בפועל המשקוף 120 - אפשרי)`,c:'warn'});
+  if(I.ct==='big' && dt!=='C'){ const sh = s.doorDir==='R'? I.SR : I.SL;
+    if(sh<450) notes.push({t:`ארון גדול: בקומה העליונה נדרשת כתף 450 בצד הפתיחה (${sideName(s.doorDir)}) - יש ${sh}`,c:'warn'}); }
+  if(Math.min(s.shGapL,s.shGapR)<P.shGap) notes.push({t:`מרווח משקוף-כתף ${s.shGapL} / ${s.shGapR} מ"מ - פחות מ-${P.shGap}`,c:'warn'});
+  if(s.shGapL>300||s.shGapR>300) notes.push({t:`מרווח גדול בין המשקוף לכתף (${s.shGapL}/${s.shGapR}) - כיסוי/מילוי`,c:''});
+  s.panL = s.o1-s.carL; s.panR = (s.carL+s.extW)-(s.o1+s.clear);
+  if(dt!=='C' && Math.min(s.panL,s.panR) > P.flush[1]) notes.push({t:`המשקוף הוזז ביחס לקבינה: מזוזות ${s.panL} / ${s.panR} (לא סטנדרטי)`,c:''});
+}
 
-  // ---- second entrance
-  let rear=null, sideDoor=null;
+// counterweight along the depth (Felesa rule): car rail axis, CWT DBG split around it, CWT clear of the back wall
+function counterweightDepth(s,I,L){
+  s.railY=s.cy+s.extD/2; s.cwtTop=null; s.cwtBot=null;
+  if(L!=='NF') return;
+  s.railY = s.cy+s.extD-railAxis(s.extD,s.clear,s.q,I.en);
+  const pos = v => { const [b,f]=cwtSplit(v); return [s.railY-b, s.railY+f]; };
+  const pick = (s.cwtList||[s.dbgCwt]).filter(v=>v<=s.dbgCwt).find(v=>pos(v)[0]>=CWT_BACK_MIN);
+  if(pick && pick!==s.dbgCwt){ s.notes.push({t:`DBG משקולת ${pick} במקום ${s.dbgCwt} - עם מיקום פסי הקבינה לפי פלסה המשקולת לא נכנסת מאחור`,c:'warn'}); s.dbgCwt=pick; }
+  [s.cwtTop,s.cwtBot] = pos(s.dbgCwt);
+  if(s.cwtTop<CWT_BACK_MIN) s.notes.push({t:`פס המשקולת האחורי ${Math.round(s.cwtTop)} מ"מ מהקיר האחורי (בשרטוטי פלסה לפחות 160) - לבדוק מול Felesa`,c:'warn'});
+}
+
+// second entrance: 180 degrees (rear wall) or 90 degrees (side wall)
+function secondEntrance(s,I,side){
+  const notes=s.notes, clear=s.clear, dt=s.dt;
+  s.rear=null; s.sideDoor=null;
   if(I.en==='180'){
     // rear shoulders are entered as seen from the rear lobby: their left is the front's right
     const rL = I.RR ?? I.SL, rR = I.RL ?? I.SR;   // in front coordinates
-    const rd = placeDoor(clear,carL,carR,rL,I.W-rR,dt,dirPref,P.jambMin);
-    rear = {o1:rd.o1, jl:rd.ja, jr:rd.jb, shL:rL, shR:rR, cuts:rd.cuts.map(k=>({side:k.end==='A'?'L':'R',mm:k.mm}))};
-    for(const k of rear.cuts){ const rs = k.side==='L'?'ימין':'שמאל'; const from = k.side==='L'?rL:rR;
+    const rd = placeDoor(clear,s.carL,s.carR,rL,I.W-rR,dt,s.dirPref,P.jambMin);
+    s.rear = {o1:rd.o1, jl:rd.ja, jr:rd.jb, shL:rL, shR:rR, cuts:rd.cuts.map(k=>({side:k.end==='A'?'L':'R',mm:k.mm}))};
+    for(const k of s.rear.cuts){ const rs = k.side==='L'?'ימין':'שמאל'; const from = k.side==='L'?rL:rR;
       notes.push({t:`כניסה אחורית: ניסור כתף ${rs} (במבט מהלובי האחורי) ${k.mm} מ"מ (מ-${from} ל-${from-k.mm})`,c:'cut'}); }
     if(I.RL==null && I.RR==null) notes.push({t:'כתפיים אחוריות לא הוזנו - חושב כמו בחזית',c:''});
   }
   if(I.en==='90'){
     // along the depth axis (y from back wall 0 to front D); side door opening spans [SB, D-SF]
     const sb=I.SB??0, sf=I.SF??0;
-    const sd = placeDoor(clear,cy,cy+extD,sb,I.D-sf,dt,'auto',P.jambMin);
-    const sideCarMax = extD - P.carDoor[dt];
+    const sd = placeDoor(clear,s.cy,s.cy+s.extD,sb,I.D-sf,dt,'auto',P.jambMin);
+    const sideCarMax = s.extD - P.carDoor[dt];
     if(clear>sideCarMax) notes.push({t:`כניסה צדדית: עומק הקבינה מאפשר פתח עד ${fl10(sideCarMax)}`,c:'warn'});
-    sideDoor={o1:sd.o1, jb:sd.ja, jf:sd.jb, sb, sf, cuts:sd.cuts};
+    s.sideDoor={o1:sd.o1, jb:sd.ja, jf:sd.jb, sb, sf, cuts:sd.cuts};
     for(const k of sd.cuts) notes.push({t:`כניסה צדדית: ניסור כתף ${k.end==='A'?'אחורית':'קדמית'} ${k.mm} מ"מ`,c:'cut'});
     notes.push({t:`כניסה שנייה בקיר ה${sideName(I.s90)}, המסילות והמשקולת בקיר ה${sideName(side)}`,c:''});
   }
+}
 
+// persons, standard car / DBG checks, the option's score and the result object the screens and the drawing use
+function buildResult(s,I,L,side,mode,c){
+  const notes=s.notes, {iw,id,q,area,clear,dt,doorDir,o1,dbgCar,dbgCwt}=s;
   const persons=personsFor(q,area);
-  const stdObj = c.kind==='std'?c.std:STD.find(s=>s.w===iw&&s.d===id);
+  const stdObj = c.kind==='std'?c.std:STD.find(t=>t.w===iw&&t.d===id);
   const isStd = !!stdObj;
   const ds=DBG_STD[persons], dbgStd = L==='NF'&&ds? {...ds, ok:dbgCar===ds.dc&&dbgCwt===ds.dw} : null;
   if(dbgStd && !dbgStd.ok) notes.push({t:`DBG לא סטנדרטי ל-${persons} נוסעים: ${[dbgCar!==ds.dc?`קבינה ${dbgCar} (סטנדרט ${ds.dc})`:'', dbgCwt!==ds.dw?`משקולת ${dbgCwt} (סטנדרט ${ds.dw})`:''].filter(Boolean).join(', ')}`,c:'warn'});
-  const allCuts=[...cuts,...(rear?.cuts||[]),...(sideDoor?.cuts||[])];
+  const allCuts=[...s.cuts,...(s.rear?.cuts||[]),...(s.sideDoor?.cuts||[])];
   const nWarn=notes.filter(n=>n.c==='warn').length;
-  const score = - allCuts.reduce((s,k)=>s+k.mm,0)*3 + clear*2 - nWarn*50 + (isStd?30:0) + (fullD?15:0);   // no cutting > wider door > fewer warnings; spare width to the clearances, not to the back
+  const score = - allCuts.reduce((t,k)=>t+k.mm,0)*3 + clear*2 - nWarn*50 + (isStd?30:0) + (s.fullD?15:0);   // no cutting > wider door > fewer warnings; spare width to the clearances, not to the back
   if(dt!=='T3'){ const sl=sillSpan(o1,clear,dt,doorDir), wl=Math.round(sl.land[0]), wr=Math.round(I.W-sl.land[1]);
-    for(const [v,s] of [[wl,'L'],[wr,'R']]) if(v<0 && (dt==='C'||doorDir===s)) notes.push({t:`סף דלת הקומה חורג מהקיר ה${sideName(s)} ב-${-v} מ"מ`,c:'warn'}); }
-  return {L,side,mode,iw,id,extW,extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt,gapOth,carL,cy,railOff,railY,cwtTop,cwtBot,fullD,dbgStd,clear,dt,doorDir,o1,jl,jr,legL,legR,shGapL,shGapR,panL,panR,cuts:allCuts,frontCuts:cuts,rear,sideDoor,ctrl,notes,isStd,stdName:stdObj?.name,acc:access(iw,id,clear,q),score,front,I};
+    for(const [v,sd] of [[wl,'L'],[wr,'R']]) if(v<0 && (dt==='C'||doorDir===sd)) notes.push({t:`סף דלת הקומה חורג מהקיר ה${sideName(sd)} ב-${-v} מ"מ`,c:'warn'}); }
+  return {L,side,mode,iw,id,extW:s.extW,extD:s.extD,area,q,persons,model:modelFor(L,q),dbgCar,dbgCwt,gapCwt:s.gapCwt,gapOth:s.gapOth,carL:s.carL,cy:s.cy,
+    railOff:s.railOff,railY:s.railY,cwtTop:s.cwtTop,cwtBot:s.cwtBot,fullD:s.fullD,dbgStd,clear,dt,doorDir,o1,jl:s.jl,jr:s.jr,legL:s.legL,legR:s.legR,
+    shGapL:s.shGapL,shGapR:s.shGapR,panL:s.panL,panR:s.panR,cuts:allCuts,frontCuts:s.cuts,rear:s.rear,sideDoor:s.sideDoor,ctrl:s.ctrl,notes,
+    isStd,stdName:stdObj?.name,acc:access(iw,id,clear,q),score,front:s.front,I};
 }
 
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
-// standalone HTML (no Claude viewer): a regular browser download
-function browserSave(name,data){
-  const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
-}
 // standalone HTML (no Claude viewer): a regular browser download
 function browserSave(name,data){
   const blob=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});
@@ -1918,180 +1463,6 @@ function solveDuplexSame(I){
   return pairs.slice(0,10);
 }
 
-/* ---------- plan drawing (SVG, mm units) - bbox-fitted, collision-avoiding labels, he/en ---------- */
-const PL_TXT={
-  he:{cwt:'מרווח משקולת',single:'פס בודד',rsSide:'מסילות+משקולת',rsFree:'צד פנוי',dbg:'DBG קבינה',shaftW:'רוחב פיר',shaftD:'עומק פיר',shL:'כתף',shR:'כתף',gap:'מרווח',frame:'משקוף',clear:'פתח אור',panel:'מזוזה',back:'גב',front:'חזית',carInt:'קבינה פנים',pillar:'עמוד',beam:'קורה',carPos:'מיקום הקבינה בפיר',wallToCar:'קיר-קבינה',car:'קבינה',view:'מבט על · הלובי למטה',ctrlF:'פיקוד במשקוף (קומה עליונה)',ctrlB:'ארון פיקוד',ctrlS:'ארון קטן',dbgCwt:'DBG משקולת',kg:'ק"ג',pers:'נוסעים',now:'היום',carDoor:'דלת קבינה',landDoor:'דלת קומה בפיר',podest:'על הפודסט',toWall:'מרווח',chassis:'לשאסי',carWall:'דופן',inner:'פנים',landing:'פודסט'},
-  en:{cwt:'CWT gap',single:'Rail side',rsSide:'Rails+CWT',rsFree:'Free side',dbg:'Car DBG',shaftW:'Shaft width',shaftD:'Shaft depth',shL:'Shoulder',shR:'Shoulder',gap:'Gap',frame:'Frame',clear:'Clear opening',panel:'Panel',back:'Back',front:'Front',carInt:'Car (int.)',pillar:'Pillar',beam:'Beam',carPos:'Car position in shaft',wallToCar:'Wall-car',car:'Car',view:'TOP VIEW - landing side at bottom',ctrlF:'Frame controller (top floor)',ctrlB:'Controller cabinet',ctrlS:'Small controller',dbgCwt:'CWT DBG',kg:'kg',pers:'pers.',now:'now',carDoor:'Car door',landDoor:'Landing door in shaft',podest:'On landing',toWall:'Gap',chassis:'Chassis',carWall:'Wall',inner:'Inside',landing:'Landing'}};
-const PL_COL={ink:'#0d1420',ink2:'#2b3646',muted:'#5a6577',line:'#d3dae4',wall:'#c9d1db',hatch:'#9aa6b4',car:'#eef3ff',cwt:'#4a5566',accent:'#3554d1',ok:'#13865c',okSoft:'#e3f6ee',warn:'#b26b00',warnSoft:'#fff5dc',cut:'#d9480f',cutSoft:'#fff0e6',bg:'#ffffff',podest:'#f6e2ad',podestLine:'#c58a14',frame:'#1f2a37',sill:'#9aa6b4'};
-function drawPlan(R, opt={}){
-  const lang=opt.lang||'he', T=PL_TXT[lang], pr=!!opt.print;
-  const C=k=>pr?PL_COL[k]:({ink:'var(--ink)',ink2:'var(--ink-2)',muted:'var(--muted)',line:'var(--line-2)',wall:'var(--wall)',hatch:'var(--hatch)',car:'var(--car)',cwt:'var(--cwt)',accent:'var(--accent)',ok:'var(--ok)',okSoft:'var(--ok-soft)',warn:'var(--warn)',warnSoft:'var(--warn-soft)',cut:'var(--cut)',cutSoft:'var(--cut-soft)',bg:'var(--surface)',podest:'var(--amber-soft)',podestLine:'var(--amber)',frame:'var(--ink)',sill:'var(--hatch)'}[k]);
-  const MC=o=>pr?({miniGRLp:'#0e9384',GRL2:'#3554d1',GRL4:'#1d2f7a',miniGRL:'#7a3fe0',GRL2RS:'#c0279c'}[modelKey(o)]):`var(${MODELS[modelKey(o)].v})`;
-  const FN=pr?'Arial, Helvetica, sans-serif':(lang==='en'?'var(--f-num)':'var(--f-body)'), FNUM=pr?'Arial, Helvetica, sans-serif':'var(--f-num)';
-  const W=R.W, D=R.D, t=200;
-  const fs=Math.max(78, Math.min(130, Math.max(W, D*1.15)*0.046)), sfs=fs*0.74, row=fs*1.5;
-  const s=[], occupied={}, cwDims=[]; let bb={x0:-t,y0:-t,x1:W+t,y1:D+t};
-  const grow=(x0,y0,x1,y1)=>{bb.x0=Math.min(bb.x0,x0);bb.y0=Math.min(bb.y0,y0);bb.x1=Math.max(bb.x1,x1);bb.y1=Math.max(bb.y1,y1);};
-  const tw=(str,f)=>String(str).length*f*0.58;
-  const txt=(x,y,str,o2={})=>{ const f=o2.fs||fs, a=o2.a||'middle', w=tw(str,f);
-    if(o2.rot) grow(x-f,y-w/2,x+f*0.3,y+w/2); else grow(a==='middle'?x-w/2:a==='end'?x-w:x, y-f, a==='middle'?x+w/2:a==='end'?x:x+w, y+f*0.3);
-    s.push(`<text x="${x}" y="${y}" font-size="${f}" text-anchor="${a}" fill="${o2.c||C('ink')}" ${o2.rot?`transform="rotate(${o2.rot} ${x} ${y})"`:''} font-family="${o2.num?FNUM:FN}" ${o2.w?`font-weight="${o2.w}"`:''}>${str}</text>`); };
-  const rect=(x,y,w,h,f,extra='')=>{ if(w<=0||h<=0) return; s.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" ${extra}/>`); };
-  const line=(x1,y1,x2,y2,c,w,extra='')=>s.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}" ${extra}/>`);
-  s.push(`<defs><pattern id="ht${pr?'p':''}" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="60" height="60" fill="${C('wall')}"/><line x1="0" y1="0" x2="0" y2="60" stroke="${C('hatch')}" stroke-width="10"/></pattern>
-    <pattern id="ct${pr?'p':''}" width="50" height="50" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="50" height="50" fill="${C('cutSoft')}"/><line x1="0" y1="0" x2="0" y2="50" stroke="${C('cut')}" stroke-width="12"/></pattern></defs>`);
-  const HT=`url(#ht${pr?'p':''})`, CT=`url(#ct${pr?'p':''})`;
-  // ---- walls
-  const I=R.I, single=R.lifts.length===1, o0=R.lifts[0].o;
-  const rear=single?o0.rear:null, sideD=single?o0.sideDoor:null;
-  if(rear){ const rc=k=>rear.cuts.find(c=>c.side===k)?.mm||0;
-    rect(-t,-t,t+rear.shL-rc('L'),t,HT); rect(W-rear.shR+rc('R'),-t,rear.shR-rc('R')+t,t,HT);
-    if(rc('L')) rect(rear.shL-rc('L'),-t,rc('L'),t,CT); if(rc('R')) rect(W-rear.shR,-t,rc('R'),t,CT);
-    rect(rear.o1-rear.jl,-t+20,Math.min(P.jamb,rear.jl),t-40,C('ink2')); rect(rear.o1+o0.clear,-t+20,Math.min(P.jamb,rear.jr),t-40,C('ink2')); rect(rear.o1,0,o0.clear,20,C('accent'));
-  } else rect(-t,-t,W+2*t,t,HT);
-  const sdx = sideD ? (I.s90==='L'?-t:W) : null;
-  if(sideD){ const ca=sideD.cuts.find(k=>k.end==='A')?.mm||0, cb=sideD.cuts.find(k=>k.end==='B')?.mm||0;
-    rect(sdx,0,t,sideD.sb-ca,HT); rect(sdx,D-sideD.sf+cb,t,sideD.sf-cb,HT);
-    rect(I.s90==='L'?0:W-20,sideD.o1,20,o0.clear,C('accent')); }
-  if(sdx!==-t) rect(-t,0,t,D,HT);
-  if(sdx!==W) rect(W,0,t,D,HT);
-  // front wall: solid between openings, cut zones hatched orange
-  let px=-t;
-  R.openings.forEach((op,i)=>{ rect(px,D,op.a-op.cutA-px,t,HT); if(op.cutA) rect(op.a-op.cutA,D,op.cutA,t,CT); if(op.cutB) rect(op.b,D,op.cutB,t,CT); px=op.b+op.cutB; });
-  rect(px,D,W+t-px,t,HT);
-  for(const op of R.openings){ const a=op.a-op.cutA, b=op.b+op.cutB;   // landing (podest): the wall opening and the floor in front of it
-    rect(a,D,b-a,t+90,C('podest'),`stroke="${C('podestLine')}" stroke-width="5"`);
-    txt((a+b)/2,D+t+40,lang==='en'?'LANDING':'פודסט',{fs:sfs,c:C('podestLine')}); }
-  s.push(`<rect x="0" y="0" width="${W}" height="${D}" fill="none" stroke="${C('ink')}" stroke-width="6"/>`);
-  for(const bm of beamsOf(R)){ const RB={beam:bm}; rect(RB.beam.x,0,RB.beam.w,D,'none',`stroke="${C('muted')}" stroke-width="6" stroke-dasharray="30 20"`); txt(bm.x+bm.w/2,D*0.18,T.beam,{fs:sfs,c:C('muted'),rot:-90}); }
-  // ---- lifts
-  for(const {o,x0} of R.lifts){
-    const mc=MC(o), cx=x0+o.carL, cy=o.cy, o1=x0+o.o1, op=R.openings[R.lifts.findIndex(l=>l.o===o)];
-    // front, as in Felesa drawings: car front -> 30+30 -> car door (90) -> landing door (90) -> wall. Panels drawn closed, inside the opening only.
-    const yCar=cy+o.extD, yLD=yCar+P.doorZone.carDoor, yLD1=yLD+P.doorZone.landDoor, yCD=yLD-P.doorZone.landDoor, c=o.clear;
-    // each door: sill strip at the running gap (between the doors) + closed panels in lanes behind it
-    const lanes=o.dt==='T3'?3:o.dt==='C'?1:2, sw=28, lt=Math.floor((P.doorZone.landDoor-sw-10)/lanes)-3;
-    const doorPanels=(yBand,dirIn,col)=>{ // dirIn -1: lanes towards the car, +1: towards the landing
-      const ys=k=> dirIn<0? yBand-6-(k+1)*(lt+3) : yBand+sw+6+k*(lt+3);
-      if(o.dt==='C'){ rect(o1-10,ys(0),c/2+20,lt,col); rect(o1+c/2-10,ys(0),c/2+20,lt,col); return; }
-      for(let i=0;i<lanes;i++){ const w=c/lanes+30, x=o.doorDir==='R'? o1+c-(i+1)*c/lanes-15 : o1+i*c/lanes-15; rect(Math.max(o1-20,x),ys(i),w,lt,col); } };
-    rect(o1,yLD-4-sw,c,sw,C('sill')); doorPanels(yLD-4-sw,-1,C('muted'));               // car sill + car door (towards the car)
-    rect(o1,yLD+4,c,sw,C('accent')); doorPanels(yLD+4,1,C('ink2'));                      // landing sill + landing door (towards the landing)
-    // landing frame: L profile - face on the landing side of the landing door + return along the opening edge
-    const fy=yLD1, fd=34;
-    for(const [x0f,w,ret] of [[o1-o.legL,o.legL,o1-22],[o1+c,o.legR,o1+c]]){ rect(x0f,fy,w,fd,C('frame')); rect(ret,yLD+16,22,fy-yLD-16,C('frame')); }
-    for(const [gx,gw] of [[o1-o.legL-o.shGapL,o.shGapL],[o1+c+o.legR,o.shGapR]]) if(gw>0) rect(gx,fy,gw,fd,gw<P.shGap?C('warnSoft'):C('okSoft'),`stroke="${gw<P.shGap?C('warn'):C('ok')}" stroke-width="5" stroke-dasharray="14 9"`);
-    // car
-    s.push(`<rect x="${cx}" y="${cy}" width="${o.extW}" height="${o.extD}" fill="${C('car')}" stroke="${mc}" stroke-width="14"/>`);
-    s.push(`<rect x="${cx+30}" y="${cy+o.extD-o.id}" width="${o.iw}" height="${o.id}" fill="none" stroke="${mc}" stroke-width="4" stroke-dasharray="20 14"/>`);
-    rect(o1,cy+o.extD-10,o.clear,20,C('accent'));
-    const cf=Math.min(fs*1.5, o.extW/6.2);
-    txt(cx+o.extW/2,cy+o.extD/2-cf*0.15,`${o.iw}×${o.id}`,{fs:cf,w:700,num:true});
-    txt(cx+o.extW/2,cy+o.extD/2+cf*0.95,`${o.q} ${T.kg} · ${o.persons} ${T.pers}`,{fs:cf*0.62,c:C('muted')});
-    if(o.dt!=='C'){ const ax=o1+o.clear/2, ay=cy+o.extD-cf*0.9, dx=(o.doorDir==='R'?1:-1)*Math.min(160,o.clear/4);
-      line(ax-dx,ay,ax+dx,ay,C('accent'),10); s.push(`<path d="M${ax+dx} ${ay} l${-Math.sign(dx)*50} -35 v70z" fill="${C('accent')}"/>`); }
-    // rails + counterweight
-    const tRail=(xf,yc,dir)=>{ rect(dir>0?xf-70:xf,yc-9,70,18,C('ink')); rect(dir>0?xf-80:xf+70,yc-45,10,90,C('ink')); };
-    const tRailY=(x,yf,dir)=>{ rect(x-9,dir>0?yf:yf-70,18,70,C('ink')); rect(x-40,dir>0?yf+70:yf-80,80,10,C('ink')); };   // blade tip at yf, pointing at the counterweight/car
-    const midY=cy+o.extD/2, HW=o.I.W;
-    if(o.L==='NF'){
-      const ry=o.railY??midY;   // car rail axis (Felesa: behind the car middle)
-      tRail(cx-o.railOff,ry,1); tRail(cx+o.extW+o.railOff,ry,-1);
-      const cwX = x0+(o.side==='L'?70:HW-70), yt=o.cwtTop??Math.max(60,D-430-o.dbgCwt), yb=o.cwtBot??D-430;
-      tRailY(cwX,yt,-1); tRailY(cwX,yb,1); rect(cwX-60,yt+15,120,yb-yt-30,C('cwt'));
-      line(cwX-80,ry,cwX+80,ry,C('muted'),4,'stroke-dasharray="14 8"');
-      cwDims.push({x:o.side==='L'?-t:W+t, side:o.side, yt, yb, ry, v:o.dbgCwt});
-    } else {
-      const y1=midY-o.dbgCar/2, y2=midY+o.dbgCar/2, rx=x0+(o.side==='L'?250:HW-250), cwX=x0+(o.side==='L'?90:HW-90);
-      tRailY(rx,y1,-1); tRailY(rx,y2,1); rect(cwX-55,y1+20,110,o.dbgCar-40,C('cwt'));
-    }
-    // controller
-    if(o.ctrl.type==='frame'){ const jx = o.ctrl.side==='L'? o1-o.legL : o1+o.clear, jw = o.ctrl.side==='L'? o.legL : o.legR;
-      s.push(`<rect x="${jx}" y="${D+20}" width="${jw}" height="${t-40}" fill="none" stroke="${C('warn')}" stroke-width="10"/>`); }
-    // panels inside the car (front wall of the car)
-    dimChain([cx,o1,o1+o.clear,cx+o.extW], cy+o.extD-cf*2.1, [{v:o.panL,n:T.panel},null,{v:o.panR,n:T.panel}], -1, true);
-  }
-  // controller cabinet marker (single only - drawn at the larger shoulder side)
-  if(single && o0.ctrl.type!=='frame'){ const big=o0.ctrl.type==='big', cw=big?450:160, ch=big?250:150, left=I.SL>=I.SR;
-    const bx = left ? -t-cw-160 : W+t+160, by = D+t+40; rect(bx,by,cw,ch,'none',`stroke="${C('warn')}" stroke-width="10"`);
-    txt(bx+cw/2,by+ch+sfs*1.3,big?T.ctrlB:T.ctrlS,{fs:sfs,c:C('warn')}); }
-  // ---- dimension chains
-  function dimChain(pts,y,labels,dir,inner){ // dir -1: labels above the line, +1: below
-    line(pts[0],y,pts[pts.length-1],y,C('muted'),5);
-    pts.forEach(p=>line(p-22,y+22,p+22,y-22,C('ink'),7));
-    const key=Math.round(y); let maxK=0;
-    for(let i=0;i<pts.length-1;i++){ const L=labels[i]; if(!L) continue; const a=pts[i],b=pts[i+1],mid=(a+b)/2;
-      if(b-a<=0.5) continue;
-      const f=inner?sfs:fs, vw=tw(L.v,f)+f*0.5;
-      if(b-a>=vw){ // fits on the line
-        txt(mid, dir<0? y-f*0.3 : y+f*1.05, L.v,{fs:f,c:L.c,num:true});
-        if(L.n && b-a>=tw(L.n,sfs*0.85)+20 && !inner) txt(mid, dir<0? y-f*0.3-f*1.05 : y+f*1.05+sfs*1.05, L.n,{fs:sfs*0.85,c:L.c||C('muted')});
-      } else { // staggered outward with a leader
-        let k=1; occupied[key]=occupied[key]||[];
-        const x0=mid-vw/2, x1=mid+vw/2;
-        while(occupied[key].some(([r,u,v])=>r===k && !(x1<u||x0>v))) k++;
-        occupied[key].push([k,x0,x1]); maxK=Math.max(maxK,k);
-        const ty = dir<0? y-f*0.3-row*k : y+f*1.05+row*k;
-        line(mid,y,mid,dir<0? ty+f*0.25 : ty-f*0.95,C('muted'),3,'stroke-dasharray="8 6"');
-        txt(mid,ty,L.v,{fs:f,c:L.c,num:true});
-      }
-    }
-    return maxK;
-  }
-  // top: per lift wall/beam -> rail -> rail -> wall/beam
-  const topPts=[], topLab=[];
-  R.lifts.forEach(({o,x0},i)=>{ const cx=x0+o.carL; let r1,r2; if(o.L==='NF'){ r1=cx-o.railOff; r2=cx+o.extW+o.railOff; } else { r1=cx; r2=cx+o.extW; }
-    const mc=MC(o), cw={v:o.gapCwt,n:o.L==='NF'?T.cwt:T.rsSide,c:mc}, ot={v:o.gapOth,n:o.L==='NF'?T.single:T.rsFree,c:mc};
-    if(i>0){ topLab.push({v:beamsOf(R)[i-1]?.w||100,n:T.beam}); }
-    topPts.push(x0,r1,r2); topLab.push(o.side==='L'?cw:ot,{v:o.L==='NF'?o.dbgCar:o.extW,n:o.L==='NF'?T.dbg:T.car},o.side==='L'?ot:cw);
-    if(i===R.lifts.length-1) topPts.push(x0+o.I.W); else topPts.push(x0+o.I.W);
-  });
-  const yIn=-t-(rear?fs*2.2:fs*1.2), inPts=[], inLab=[];
-  R.lifts.forEach(({o,x0})=>{ const cx=x0+o.carL, r1=o.L==='NF'?cx-o.railOff:cx, r2=o.L==='NF'?cx+o.extW+o.railOff:cx+o.extW, wl=(o.extW-o.iw)/2;
-    inPts.push(x0,r1,cx,cx+o.extW,r2,x0+o.I.W);   // car walls are always 30 - not dimensioned
-    inLab.push(null,{v:Math.round(o.railOff||0),n:T.chassis},{v:o.iw,n:T.inner},{v:Math.round(o.railOff||0),n:T.chassis},null); });
-  const kIn=dimChain(inPts,yIn,inLab,-1,true);
-  const yTop=yIn-fs*2.2-row*(kIn+0.4);
-  const kTop=dimChain(topPts,yTop,topLab,-1);
-  dimChain([0,W],yTop-fs*2.6-row*(kTop+0.6),[{v:W,n:T.shaftW}],-1);
-  // bottom 1: real front wall - shoulder | gap | frame | clear | frame | gap | (pillar) ... | shoulder
-  const bp=[0], bl=[];
-  R.lifts.forEach(({o,x0},i)=>{ const op=R.openings[i], o1=x0+o.o1, a=op.a-op.cutA, b=op.b+op.cutB, gc=g=>g<P.shGap?C('warn'):C('ok');
-    if(i===0) bl.push({v:a,n:op.cutA?`${T.shL} (${T.now} ${op.a})`:T.shL,c:op.cutA?C('cut'):''});
-    else bl.push({v:a-bp[bp.length-1],n:T.pillar});
-    bp.push(a);
-    if(o.shGapL>0){ bp.push(o1-o.legL); bl.push({v:o.shGapL,n:T.gap,c:gc(o.shGapL)}); }
-    bp.push(o1); bl.push({v:o.legL,n:T.frame});
-    bp.push(o1+o.clear); bl.push({v:o.clear,n:T.clear,c:C('accent')});
-    bp.push(o1+o.clear+o.legR); bl.push({v:o.legR,n:T.frame});
-    if(o.shGapR>0){ bp.push(b); bl.push({v:o.shGapR,n:T.gap,c:gc(o.shGapR)}); }
-  });
-  { const last=R.openings[R.openings.length-1], b=last.b+last.cutB; bp.push(W); bl.push({v:W-b,n:last.cutB?`${T.shR} (${T.now} ${W-last.b})`:T.shR,c:last.cutB?C('cut'):''}); }
-  const yB1=D+t+fs*1.3;
-  const kB=dimChain(bp,yB1,bl,1);
-  // right: depth chain
-  const dv=(pts,x,labels)=>{ line(x,pts[0],x,pts[pts.length-1],C('muted'),5); pts.forEach(p=>line(x-22,p+22,x+22,p-22,C('ink'),7));
-    for(let i=0;i<pts.length-1;i++){ const L=labels[i],a=pts[i],b=pts[i+1]; if(!L) continue; const f=b-a>=tw(L.v,fs)+fs?fs:sfs;
-      txt(x-f*0.35,(a+b)/2,L.v,{fs:f,rot:-90,c:L.c,num:true}); if(L.n && b-a>tw(L.n,sfs)+40) txt(x+sfs*1.15,(a+b)/2,L.n,{fs:sfs,rot:-90,c:C('muted')}); } };
-  // DBG-CW: outside the shaft wall on the counterweight side, with extension lines to the CWT rails
-  let rOff=0;
-  for(const c of cwDims){ const x=c.side==='L'? c.x-fs*1.5 : c.x+fs*1.5;
-    line(c.side==='L'?x-30:c.x,c.yt,c.side==='L'?c.x:x+30,c.yt,C('muted'),3,'stroke-dasharray="10 8"'); line(c.side==='L'?x-30:c.x,c.yb,c.side==='L'?c.x:x+30,c.yb,C('muted'),3,'stroke-dasharray="10 8"');
-    line(x,c.yt,x,c.yb,C('muted'),5); [c.yt,c.yb].forEach(p=>line(x-22,p+22,x+22,p-22,C('ink'),7));
-    txt(x-sfs*0.35,(c.yt+c.yb)/2,`DBG-CW ${c.v} (${Math.round(c.ry-c.yt)}/${Math.round(c.yb-c.ry)})`,{fs:sfs,rot:-90,c:C('ink'),num:true});
-    line(x-22,c.ry,x+22,c.ry,C('ink'),5);
-    if(c.side==='R') rOff=fs*2.2; }
-  const cy=o0.cy, frontGap=D-cy-o0.extD;
-  dv([0,cy,cy+o0.extD,D], W+t+fs*1.6+rOff, [{v:cy,n:T.back},{v:o0.id,n:T.carInt},{v:frontGap,n:T.front,c:frontGap<P.front?C('warn'):''}]);
-  dv([0,D], W+t+fs*4.2+rOff, [{v:D,n:T.shaftD}]);
-
-  txt(-t-fs*(cwDims.some(c=>c.side==='L')?3.4:0.9),D/2,T.view,{fs:sfs,rot:-90,c:C('muted')});
-  const m=fs*0.8;
-  const vb=[bb.x0-m,bb.y0-m,bb.x1-bb.x0+2*m,bb.y1-bb.y0+2*m];
-  return `<svg viewBox="${vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${T.view}" direction="ltr" ${pr?`width="${Math.round(vb[2])}" height="${Math.round(vb[3])}" style="background:#fff"`:''}>${pr?`<rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="#fff"/>`:''}${s.join('')}</svg>`;
-}
-
-/* ---------- PDF export (English, no Hebrew) ---------- */
 // PDF: page 1 the Felesa-style SHAFT sheet, page 2 the data sheet, page 3 (English, order tab) the order data.
 // lang 'en' for Felesa, 'he' for the client.
 async function exportPDF(R, project, order, lang='en'){
@@ -2352,7 +1723,25 @@ function fsTextW(str,size,hs){
     else if('iljtf'.includes(ch)) e+=.26; else if('mw'.includes(ch)) e+=.78; else if(/[֐-׿]/.test(ch)) e+=.6; else e+=.53; }
   return e*size*0.3528*(hs??FS.hs);
 }
+/* The SHAFT sheet in stages: setup (page, scale, drawing helpers) -> walls -> lifts -> dimension chains (top, bottom,
+   sides) -> controller callout -> no text over text -> page frame, heading and title block. Every stage draws into
+   S.it (paper-mm items: p = path, t = text, i = image) through the helpers in S. */
 function felesaSheet(R, meta={}){
+  const S=sheetSetup(R,meta);
+  sheetWalls(S);
+  sheetLifts(S);          // also collects S.cwDims for the side chains
+  sheetTopChains(S);
+  sheetBottomChains(S);   // sets S.yB3 (the controller callout hangs under it)
+  sheetSideChains(S);
+  sheetController(S);
+  resolveTextOverlaps(S.it);
+  const dbb=drawingBox(S.it);   // the drawing's own extent (before the frame and title block): the on-screen view shows just this
+  sheetTitle(S);
+  const {pg,land,it,den,he}=S;
+  return {w:pg.pw,h:pg.ph,land,items:it,den,lang:he?'he':'en',dbb};
+}
+// page size / orientation / scale, and the drawing helpers (world mm -> paper mm)
+function sheetSetup(R,meta){
   const I=R.I, W=R.W, D=R.D, t=FS.wall, single=R.lifts.length===1, o0=R.lifts[0].o;
   const he=meta.lang==='he', T=(en,hb)=>he?hb:en;   // drawing language: English for Felesa, Hebrew for the client
   const rear=single?o0.rear:null, sideD=single?o0.sideDoor:null;
@@ -2409,6 +1798,10 @@ function felesaSheet(R, meta={}){
       for(const [u,v] of used) if(y1-w<v+0.6 && y1>u-0.6) y1=u-0.8;
       used.push([y1-w,y1]); tx(x-0.9,y1,L,{a:'l',rot:90,size}); }
   }
+  return {R,I,W,D,t,single,o0,he,T,rear,sideD,it,cwtL,cwtR,HEAD,pg,den,k,land,meta,X,Y,poly,ln,tx,wr,wp,wl,arrow,hchain,vchain};
+}
+function sheetWalls(S){
+  const {R,I,W,D,t,single,o0,he,T,rear,sideD,it,cwtL,cwtR,HEAD,pg,den,k,land,meta,X,Y,poly,ln,tx,wr,wp,wl,arrow,hchain,vchain}=S;
   // ---- walls: light grey fill, grey outlines, openings in the front (and rear) wall
   const G={s:FS.gray,w:FS.lw};
   const fOpen=R.openings.map(op=>[op.a,op.b]);
@@ -2439,6 +1832,9 @@ function felesaSheet(R, meta={}){
   R.openings.forEach(op=>{ for(const [a,b] of [[op.a-op.cutA,op.a],[op.b,op.b+op.cutB]]) if(b-a>0){
     wr(a,D,b-a,t,{s:0,f:null,w:FS.dw}); for(let x=a;x<b+t;x+=40){ const x1=Math.max(a,x-t), y1=D+(x-x1), x2=Math.min(b,x); wl(x2,D+(x-x2),x1,y1,{w:FS.dw}); } } });
   for(const bm of (R.beams||(R.beam?[R.beam]:[]))) wr(bm.x,0,bm.w,D,{s:0,w:FS.dw,d:[3,1.5]});
+}
+function sheetLifts(S){
+  const {R,I,W,D,t,single,o0,he,T,rear,sideD,it,cwtL,cwtR,HEAD,pg,den,k,land,meta,X,Y,poly,ln,tx,wr,wp,wl,arrow,hchain,vchain}=S;
   // ---- lifts
   const cwDims=[];
   R.lifts.forEach(({o,x0},li)=>{
@@ -2525,6 +1921,10 @@ function felesaSheet(R, meta={}){
     if(rear&&li===0){ const rx2=X(rear.o1+c/2), ry=Y(0)-Math.max(5.5,t*k*0.8)+1.5;
       poly([[rx2+1.6,ry+0.6],[rx2+3.6,ry-1.6],[rx2+2.4,ry-1.6],[rx2+2.4,ry-3.6],[rx2+0.8,ry-3.6],[rx2+0.8,ry-1.6],[rx2-0.4,ry-1.6]],{s:null,f:0,w:0}); }
   });
+  S.cwDims=cwDims;
+}
+function sheetTopChains(S){
+  const {R,I,W,D,t,single,o0,he,T,rear,sideD,it,cwtL,cwtR,HEAD,pg,den,k,land,meta,X,Y,poly,ln,tx,wr,wp,wl,arrow,hchain,vchain}=S;
   // ---- top chains
   const wTop=Y(-t);
   const row1=[], lab1=[], row2=[], lab2=[];
@@ -2544,6 +1944,9 @@ function felesaSheet(R, meta={}){
     hchain(p1.map(X),yR1,l1,wTop-1);
     if(row2.length){ const [p2,l2]=dd(row2,lab2); hchain(p2.map(X),yR2,l2,wTop-1); }
   }
+}
+function sheetBottomChains(S){
+  const {R,I,W,D,t,single,o0,he,T,rear,sideD,it,cwtL,cwtR,HEAD,pg,den,k,land,meta,X,Y,poly,ln,tx,wr,wp,wl,arrow,hchain,vchain}=S;
   // ---- bottom chains: frames + clear opening / shoulders + opening / shaft width
   const wBot=Y(D+t);
   const yB1=wBot+(Math.max(5.5,t*k*0.8)>t*k-2?6:4)+3, yB2=yB1+6.5, yB3=yB2+6.5;
@@ -2562,6 +1965,11 @@ function felesaSheet(R, meta={}){
     if(q2.length>2) hchain(q2.map(X),yB2,m2,q2.map((x,i)=>i===0||i===q2.length-1? Y(D+t)+1 : Y(D+t)+0.5));   // only one segment = the shaft width row below
     hchain([X(0),X(W)],yB3,[T('Shaft width: ','רוחב פיר: ')+W],null);
     ln(X(0),Y(D+t)+1,X(0),yB3+1.2,{w:FS.dw}); ln(X(W),Y(D+t)+1,X(W),yB3+1.2,{w:FS.dw}); }
+  S.yB3=yB3;
+}
+function sheetSideChains(S){
+  const {R,I,W,D,t,single,o0,he,T,rear,sideD,it,cwtL,cwtR,HEAD,pg,den,k,land,meta,X,Y,poly,ln,tx,wr,wp,wl,arrow,hchain,vchain}=S;
+  const cwDims=S.cwDims;
   // ---- side chains: CWT DBG on the counterweight side, car/shaft depth on the other (or outside the CWT on the right)
   const xL=X(-t), xR=X(W+t);
   let rUsed=0, lUsed=0;
@@ -2598,6 +2006,10 @@ function felesaSheet(R, meta={}){
       if(yF>D+0.5) vchain([Y(0),Y(yF)],base+s*21+dx,[T('Back wall to frame face: ','מהקיר האחורי עד פני המשקוף: ')+Math.round(yF)],[wallE+s,xf+s*0.8]); }
     ln(wallE+s,Y(D),xf-s*1.2,Y(D),{w:FS.dw});   // front wall line up to the chain
   }
+}
+function sheetController(S){
+  const {R,I,W,D,t,single,o0,he,T,rear,sideD,it,cwtL,cwtR,HEAD,pg,den,k,land,meta,X,Y,poly,ln,tx,wr,wp,wl,arrow,hchain,vchain}=S;
+  const yB3=S.yB3;
   // ---- controller callout (Felesa wording)
   if(single){ const ct=o0.ctrl.type;
     if(ct==='frame'){ const o=o0, jx=o.ctrl.side==='L'? X(o.o1-o.legL/2) : X(o.o1+o.clear+o.legR/2), jy=Y(D)+1;
@@ -2620,6 +2032,8 @@ function felesaSheet(R, meta={}){
       tx(tx0,ty,T('CONTROLLER CABINET','ארון פיקוד'),{a:ta,u:true}); tx(tx0,ty+4.2,T('PRIMED','צבוע יסוד'),{a:ta}); tx(tx0,ty+8.4,big?'450X250X2000':'160X150X2000',{a:ta}); tx(tx0,ty+12.6,T('LAST FLOOR','בקומה העליונה'),{a:ta});
     }
   }
+}
+function resolveTextOverlaps(it){
   // no text on top of another text: a text that hits one already placed steps off its line (up / down along its own
   // normal, 1.6 mm at a time); past one step it gets a thin leader back to where it was
   { const box=e=>{ const q=textBox(e); return [Math.min(...q.map(p=>p[0]))-0.25,Math.min(...q.map(p=>p[1]))-0.25,Math.max(...q.map(p=>p[0]))+0.25,Math.max(...q.map(p=>p[1]))+0.25]; };
@@ -2633,8 +2047,14 @@ function felesaSheet(R, meta={}){
             break; } }
         if(!ok){ e.x=x0; e.y=y0; bx=box(e); } }
       placed.push(bx); } }
+}
+function drawingBox(it){
   // the drawing's own extent (before the frame and title block): the on-screen view shows just this
   const dbb=[1e9,1e9,-1e9,-1e9]; for(const e of it){ const pts=e.t==='p'? e.pts : textBox(e); for(const [x,y] of pts){ dbb[0]=Math.min(dbb[0],x); dbb[1]=Math.min(dbb[1],y); dbb[2]=Math.max(dbb[2],x); dbb[3]=Math.max(dbb[3],y); } }
+  return dbb;
+}
+function sheetTitle(S){
+  const {R,I,W,D,t,single,o0,he,T,rear,sideD,it,cwtL,cwtR,HEAD,pg,den,k,land,meta,X,Y,poly,ln,tx,wr,wp,wl,arrow,hchain,vchain}=S;
   // ---- frame
   const F={l:pg.fl,r:pg.fr,t:pg.ft,b:pg.fb}, tb=F.b-FS.tb;
   poly([[F.l,F.t],[F.r,F.t],[F.r,F.b],[F.l,F.b]],{w:0.35});
@@ -2670,7 +2090,6 @@ function felesaSheet(R, meta={}){
   ln(xB,tb+17,F.r,tb+17,{w:FS.dw});
   tx((xB+F.r)/2,tb+25.5,meta.number||T('PRELIMINARY','טיוטה'),{size:FS.txt+3,b:true,hs:0.9});
   tx((xB+F.r)/2,F.b-1.4,T('Edition 0','מהדורה 0'),{size:FS.sm-0.5});
-  return {w:pg.pw,h:pg.ph,land,items:it,den,lang:he?'he':'en',dbb};
 }
 // text knock-out: a white box under each text, drawn after all lines, so no line / arrow / extension line crosses a number
 function textBox(e){ const a=e.rot*Math.PI/180, dx=Math.cos(a), dy=-Math.sin(a), ux=-Math.sin(a), uy=-Math.cos(a), cap=e.size*0.3528*0.74;
@@ -2691,7 +2110,7 @@ function felesaSVG(sh,opt={}){
   return `<svg xmlns="http://www.w3.org/2000/svg" direction="ltr" viewBox="${vb.map(v=>v.toFixed(1)).join(' ')}" ${opt.crop?'width="100%" class="fsheet"':`width="${sh.w}mm" height="${sh.h}mm"`} style="background:#fff"><rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="#fff"/>${out.join('')}</svg>`;
 }
 // the on-screen plan: the same drawing as page 1 of the PDF (Hebrew), cropped to the drawing
-function sheetView(R,lang='he'){ try{ return felesaSVG(felesaSheet(R,{lang}),{crop:true}); }catch(e){ return drawPlan(R); } 
+function sheetView(R,lang='he'){ try{ return felesaSVG(felesaSheet(R,{lang}),{crop:true}); }catch(e){ console.error(e); return `<div class="empty">השרטוט נכשל: ${e.message}</div>`; } 
 }
 function felesaPDF(doc, sh){
   const he=sh.lang==='he'; pdfHebrew(doc);
@@ -2714,6 +2133,93 @@ function felesaPDF(doc, sh){
     }
   }
 }
+/* ---------- triplex: three lifts in one shaft, checked against every measured floor ---------- */
+// A floor row is the Idan measurement form (mm): A depth, B width, C right shoulder, D right wall to the right pillar
+// (incl. the shoulder), E right pillar, F middle opening, G left pillar, H left wall to the left pillar (incl. the
+// shoulder), I left shoulder. x runs from the left wall, as seen from the lobby.
+const TRI_NAMES=['שמאל','אמצע','ימין'];
+const TRI_DEMO={name:'',floors:[[0,2100,6100,300,1700,650,1400,650,1700,300,1],[1,2100,6100,300,1700,650,1400,650,1700,300,1]]};
+const TRI_GUIDE={sh:300, op:1400, pil:650, W:6100};   // design front: 300 | 1400 | 650 | 1400 | 650 | 1400 | 300
+// edges of one floor: walls, the three openings and the two pillars. Left part chained from the left wall, right part from
+// the right wall; where the two chains disagree (the row does not add up to B) the middle opening takes the narrower reading.
+function triEdges(r){
+  const B=+r.B, ma=Math.max(r.H+r.G, B-r.D-r.E-r.F), mb=Math.min(r.H+r.G+r.F, B-r.D-r.E);
+  return {w0:0, w1:B, op:[[+r.I,+r.H],[ma,mb],[B-r.D,B-r.C]], pil:[[+r.H,ma],[mb,B-r.D]], err:Math.round(r.H+r.G+r.F+r.E+r.D-B)};
+}
+const shiftE=(e,s)=>({w0:e.w0+s,w1:e.w1+s,op:e.op.map(([a,b])=>[a+s,b+s]),pil:e.pil.map(([a,b])=>[a+s,b+s]),err:e.err});
+// the floors are lined up with a shift each (walls are not plumb): try the left wall, the right wall and the centre as
+// the datum, then refine every floor by up to +-60 mm so the common free width of the worst opening is as large as possible
+function triAlign(rows,need){
+  const E=rows.map(triEdges), Bm=Math.max(...E.map(e=>e.w1));
+  const common=sh=>{ const S=E.map((e,i)=>shiftE(e,sh[i]));
+    const op=[0,1,2].map(k=>[Math.max(...S.map(e=>e.op[k][0])),Math.min(...S.map(e=>e.op[k][1]))]);
+    const pil=[0,1].map(k=>[Math.max(...S.map(e=>e.pil[k][0])),Math.min(...S.map(e=>e.pil[k][1]))]);
+    const w=[Math.max(...S.map(e=>e.w0)),Math.min(...S.map(e=>e.w1))];
+    return {S,op,pil,w}; };
+  const score=sh=>{ const c=common(sh), m=Math.min(...c.op.map(([a,b])=>b-a-need)), wd=c.w[1]-c.w[0];
+    return m*10 + Math.min(0, wd-(Math.min(...E.map(e=>e.w1))-40))*20 + wd*0.01; };
+  const starts={'קיר שמאל':E.map(()=>0), 'קיר ימין':E.map(e=>Bm-e.w1), 'מרכז הפיר':E.map(e=>(Bm-e.w1)/2)};
+  let best=null;
+  for(const [name,s0] of Object.entries(starts)){
+    const sh=[...s0]; let sc=score(sh);
+    for(let pass=0;pass<4;pass++) for(let i=0;i<sh.length;i++) for(let d=-60;d<=60;d+=5){
+      const t=[...sh]; t[i]=s0[i]+d; const v=score(t); if(v>sc+1e-9){ sc=v; sh[i]=t[i]; } }
+    const base=name; if(!best||sc>best.sc) best={sc,sh,base,s0}; }
+  const c=common(best.sh), x0=c.w[0];   // common frame starts at the common left wall
+  const mv=v=>v-x0, mvI=([a,b])=>[mv(a),mv(b)];
+  return {datum:best.base, shifts:best.sh.map((v,i)=>Math.round(v-best.s0[i])), S:c.S.map(e=>({...e,w0:mv(e.w0),w1:mv(e.w1),op:e.op.map(mvI),pil:e.pil.map(mvI)})),
+    op:c.op.map(mvI), pil:c.pil.map(mvI), W:Math.round(c.w[1]-c.w[0])};
+}
+// lay out three lifts in the common shaft: beams (100) behind the pillars, each lift solved with the normal rules
+function triSolve(TI){
+  const rows=TI.floors.filter(r=>r.use);
+  if(rows.length<1) return {err:'אין קומות לחישוב'};
+  const need=TI.clear+2*P.jamb+2*P.shGap, al=triAlign(rows,need), bw=TI.beam||100;
+  const D=Math.min(...rows.map(r=>+r.A));
+  const base={D, stops:TI.floors.length, flList:TI.floors.map(r=>r.fl), fl0:Math.min(...TI.floors.map(r=>+r.fl)), en:'1', ct:'big', s90:'R', sm:'single', clear:TI.clear, ex:true, mx:TI.mx, fp:'std', fpv:250, cg:'std', cgv:45, bk:null, cw:null, cd:null, sd:false, rs:false};
+  const cfg=[{dt:TI.dt[0],dir:TI.dir[0],side:'L'},{dt:TI.dt[1],dir:TI.dir[1],side:TI.midCwt},{dt:TI.dt[2],dir:TI.dir[2],side:'R'}];
+  const sub=(k,a,b,req)=>{ const [oa,ob]=al.op[k]; const I={...base,...req,W:b-a,SL:Math.max(0,Math.round(oa-a)),SR:Math.max(0,Math.round(b-ob)),dt:cfg[k].dt,dir:cfg[k].dir,forceSide:cfg[k].side};
+    const o=solve(I).list.find(x=>x.L==='NF'); return o?{o,x0:a,I}:null; };
+  const range=([a,b])=>{ const lo=Math.round(a), hi=Math.round(b-bw); const r=[]; if(hi>=lo) for(let x=lo;x<=hi;x+=20) r.push(x); else r.push(Math.round((a+b-bw)/2)); return r; };
+  const B1=range(al.pil[0]), B2=range(al.pil[1]);
+  const try3=req=>{ const cL=new Map(), cR=new Map(); let best=null;
+    for(const b1 of B1){ if(!cL.has(b1)) cL.set(b1,sub(0,0,b1,req)); const L=cL.get(b1); if(!L) continue;
+      for(const b2 of B2){ if(!cR.has(b2)) cR.set(b2,sub(2,b2+bw,al.W,req)); const Rr=cR.get(b2); if(!Rr) continue;
+        const M=sub(1,b1+bw,b2,req); if(!M) continue;
+        const ls=[L,M,Rr], cut=ls.reduce((t,l)=>t+l.o.cuts.reduce((s,c)=>s+c.mm,0),0);
+        const sc=-cut*100 + Math.min(...ls.map(l=>l.o.area))*1000 - ls.reduce((t,l)=>t+Math.abs(l.o.jl-l.o.jr),0);
+        if(!best||sc>best.sc) best={sc,ls,b1,b2}; } }
+    return best; };
+  let res=try3({ps:TI.ps||null}), note='';
+  if(!res && TI.ps){ res=try3({ps:null}); note=`${TI.ps} נוסעים לא נכנס בשלוש המעליות - מוצג התא הגדול שנכנס`; }
+  if(!res) return {err:'לא נמצא סידור של שלוש מעליות נורמל פריים בפיר המשותף', al, D};
+  // one car size for all three: try the sizes that came out (and the standard car), largest first, keeping the persons
+  if(res.ls.some(l=>l.o.iw!==res.ls[0].o.iw||l.o.id!==res.ls[0].o.id)){
+    const want=res.ls[0].o.persons, sizes=[];
+    for(const z of [...res.ls.map(l=>l.o), ...STD.map(s=>({iw:s.w,id:s.d}))]) if(!sizes.some(q=>q.iw===z.iw&&q.id===z.id)) sizes.push({iw:z.iw,id:z.id});
+    sizes.sort((a,b)=>b.iw*b.id-a.iw*a.id);
+    const cutOf=r=>r.ls.reduce((t,l)=>t+l.o.cuts.reduce((s,c)=>s+c.mm,0),0); let pick=null;
+    for(const z of sizes){ const r2=try3({cw:z.iw,cd:z.id,ps:null}); if(!r2 || !r2.ls.every(l=>l.o.persons===(TI.ps||want))) continue;
+      if(!pick || cutOf(r2)<cutOf(pick)) pick=r2; if(!cutOf(pick)) break; }   // largest common car without cutting, else the least cutting
+    if(pick) res=pick; }
+  const lifts=res.ls.map(l=>({o:l.o,x0:l.x0}));
+  const openings=al.op.map(([a,b],k)=>{ const fc=s=>lifts[k].o.frontCuts.find(c=>c.side===s)?.mm||0; return {a:Math.round(a),b:Math.round(b),cutA:fc('L'),cutB:fc('R')}; });
+  const R={W:al.W,D,I:{...base,W:al.W,SL:openings[0].a,SR:al.W-openings[2].b},lifts,openings,beams:[{x:res.b1,w:bw},{x:res.b2,w:bw}],beam:{x:res.b1,w:bw},triplex:true,main:lifts[0].o,
+    notes:note?[{t:note,c:'warn'}]:[]};
+  // per floor: frame edges against that floor's openings
+  const fr=lifts.map(({o,x0})=>[x0+o.o1-P.jamb, x0+o.o1+o.clear+P.jamb]);
+  const floors=rows.map((r,i)=>{ const e=al.S[i];
+    return {fl:r.fl, err:e.err, shift:al.shifts[i], W:Math.round(e.w1-e.w0), lifts:fr.map(([fa,fb],k)=>{ const [oa,ob]=e.op[k]; return {gL:Math.round(fa-oa), gR:Math.round(ob-fb)}; })}; });
+  return {R, al, floors, D, need, cfg};
+}
+// guideline vs measured: every element of the front, per floor
+function triGuideRows(TI){
+  const g=TI.guide;
+  return TI.floors.map(r=>({fl:r.fl,use:r.use, v:[[+r.C,g.sh],[r.D-r.C,g.op],[+r.E,g.pil],[+r.F,g.op],[+r.G,g.pil],[r.H-r.I,g.op],[+r.I,g.sh],[+r.B,g.W]]}));
+}
+
+
+/* ==== UI ==== */
 /* ---------- screen 1: measurement form -> request, plan, cutting report, Felesa order ---------- */
 // Measurement form = the existing paper form ("טופס מדידה ראשונית"): per floor A..G + heights + flooring,
 // planned row, TRAVEL/OH/pit, checklist, sea proximity, notes, photos.
@@ -3111,91 +2617,6 @@ async function importMeasurement(f,st){
     say(m||('הייבוא נכשל: '+(e?.message||e?.code||e)),'warn');
   }
 }
-/* ---------- triplex: three lifts in one shaft, checked against every measured floor ---------- */
-// A floor row is the Idan measurement form (mm): A depth, B width, C right shoulder, D right wall to the right pillar
-// (incl. the shoulder), E right pillar, F middle opening, G left pillar, H left wall to the left pillar (incl. the
-// shoulder), I left shoulder. x runs from the left wall, as seen from the lobby.
-const TRI_NAMES=['שמאל','אמצע','ימין'];
-const TRI_DEMO={name:'',floors:[[0,2100,6100,300,1700,650,1400,650,1700,300,1],[1,2100,6100,300,1700,650,1400,650,1700,300,1]]};
-const TRI_GUIDE={sh:300, op:1400, pil:650, W:6100};   // design front: 300 | 1400 | 650 | 1400 | 650 | 1400 | 300
-// edges of one floor: walls, the three openings and the two pillars. Left part chained from the left wall, right part from
-// the right wall; where the two chains disagree (the row does not add up to B) the middle opening takes the narrower reading.
-function triEdges(r){
-  const B=+r.B, ma=Math.max(r.H+r.G, B-r.D-r.E-r.F), mb=Math.min(r.H+r.G+r.F, B-r.D-r.E);
-  return {w0:0, w1:B, op:[[+r.I,+r.H],[ma,mb],[B-r.D,B-r.C]], pil:[[+r.H,ma],[mb,B-r.D]], err:Math.round(r.H+r.G+r.F+r.E+r.D-B)};
-}
-const shiftE=(e,s)=>({w0:e.w0+s,w1:e.w1+s,op:e.op.map(([a,b])=>[a+s,b+s]),pil:e.pil.map(([a,b])=>[a+s,b+s]),err:e.err});
-// the floors are lined up with a shift each (walls are not plumb): try the left wall, the right wall and the centre as
-// the datum, then refine every floor by up to +-60 mm so the common free width of the worst opening is as large as possible
-function triAlign(rows,need){
-  const E=rows.map(triEdges), Bm=Math.max(...E.map(e=>e.w1));
-  const common=sh=>{ const S=E.map((e,i)=>shiftE(e,sh[i]));
-    const op=[0,1,2].map(k=>[Math.max(...S.map(e=>e.op[k][0])),Math.min(...S.map(e=>e.op[k][1]))]);
-    const pil=[0,1].map(k=>[Math.max(...S.map(e=>e.pil[k][0])),Math.min(...S.map(e=>e.pil[k][1]))]);
-    const w=[Math.max(...S.map(e=>e.w0)),Math.min(...S.map(e=>e.w1))];
-    return {S,op,pil,w}; };
-  const score=sh=>{ const c=common(sh), m=Math.min(...c.op.map(([a,b])=>b-a-need)), wd=c.w[1]-c.w[0];
-    return m*10 + Math.min(0, wd-(Math.min(...E.map(e=>e.w1))-40))*20 + wd*0.01; };
-  const starts={'קיר שמאל':E.map(()=>0), 'קיר ימין':E.map(e=>Bm-e.w1), 'מרכז הפיר':E.map(e=>(Bm-e.w1)/2)};
-  let best=null;
-  for(const [name,s0] of Object.entries(starts)){
-    const sh=[...s0]; let sc=score(sh);
-    for(let pass=0;pass<4;pass++) for(let i=0;i<sh.length;i++) for(let d=-60;d<=60;d+=5){
-      const t=[...sh]; t[i]=s0[i]+d; const v=score(t); if(v>sc+1e-9){ sc=v; sh[i]=t[i]; } }
-    const base=name; if(!best||sc>best.sc) best={sc,sh,base,s0}; }
-  const c=common(best.sh), x0=c.w[0];   // common frame starts at the common left wall
-  const mv=v=>v-x0, mvI=([a,b])=>[mv(a),mv(b)];
-  return {datum:best.base, shifts:best.sh.map((v,i)=>Math.round(v-best.s0[i])), S:c.S.map(e=>({...e,w0:mv(e.w0),w1:mv(e.w1),op:e.op.map(mvI),pil:e.pil.map(mvI)})),
-    op:c.op.map(mvI), pil:c.pil.map(mvI), W:Math.round(c.w[1]-c.w[0])};
-}
-// lay out three lifts in the common shaft: beams (100) behind the pillars, each lift solved with the normal rules
-function triSolve(TI){
-  const rows=TI.floors.filter(r=>r.use);
-  if(rows.length<1) return {err:'אין קומות לחישוב'};
-  const need=TI.clear+2*P.jamb+2*P.shGap, al=triAlign(rows,need), bw=TI.beam||100;
-  const D=Math.min(...rows.map(r=>+r.A));
-  const base={D, stops:TI.floors.length, flList:TI.floors.map(r=>r.fl), fl0:Math.min(...TI.floors.map(r=>+r.fl)), en:'1', ct:'big', s90:'R', sm:'single', clear:TI.clear, ex:true, mx:TI.mx, fp:'std', fpv:250, cg:'std', cgv:45, bk:null, cw:null, cd:null, sd:false, rs:false};
-  const cfg=[{dt:TI.dt[0],dir:TI.dir[0],side:'L'},{dt:TI.dt[1],dir:TI.dir[1],side:TI.midCwt},{dt:TI.dt[2],dir:TI.dir[2],side:'R'}];
-  const sub=(k,a,b,req)=>{ const [oa,ob]=al.op[k]; const I={...base,...req,W:b-a,SL:Math.max(0,Math.round(oa-a)),SR:Math.max(0,Math.round(b-ob)),dt:cfg[k].dt,dir:cfg[k].dir,forceSide:cfg[k].side};
-    const o=solve(I).list.find(x=>x.L==='NF'); return o?{o,x0:a,I}:null; };
-  const range=([a,b])=>{ const lo=Math.round(a), hi=Math.round(b-bw); const r=[]; if(hi>=lo) for(let x=lo;x<=hi;x+=20) r.push(x); else r.push(Math.round((a+b-bw)/2)); return r; };
-  const B1=range(al.pil[0]), B2=range(al.pil[1]);
-  const try3=req=>{ const cL=new Map(), cR=new Map(); let best=null;
-    for(const b1 of B1){ if(!cL.has(b1)) cL.set(b1,sub(0,0,b1,req)); const L=cL.get(b1); if(!L) continue;
-      for(const b2 of B2){ if(!cR.has(b2)) cR.set(b2,sub(2,b2+bw,al.W,req)); const Rr=cR.get(b2); if(!Rr) continue;
-        const M=sub(1,b1+bw,b2,req); if(!M) continue;
-        const ls=[L,M,Rr], cut=ls.reduce((t,l)=>t+l.o.cuts.reduce((s,c)=>s+c.mm,0),0);
-        const sc=-cut*100 + Math.min(...ls.map(l=>l.o.area))*1000 - ls.reduce((t,l)=>t+Math.abs(l.o.jl-l.o.jr),0);
-        if(!best||sc>best.sc) best={sc,ls,b1,b2}; } }
-    return best; };
-  let res=try3({ps:TI.ps||null}), note='';
-  if(!res && TI.ps){ res=try3({ps:null}); note=`${TI.ps} נוסעים לא נכנס בשלוש המעליות - מוצג התא הגדול שנכנס`; }
-  if(!res) return {err:'לא נמצא סידור של שלוש מעליות נורמל פריים בפיר המשותף', al, D};
-  // one car size for all three: try the sizes that came out (and the standard car), largest first, keeping the persons
-  if(res.ls.some(l=>l.o.iw!==res.ls[0].o.iw||l.o.id!==res.ls[0].o.id)){
-    const want=res.ls[0].o.persons, sizes=[];
-    for(const z of [...res.ls.map(l=>l.o), ...STD.map(s=>({iw:s.w,id:s.d}))]) if(!sizes.some(q=>q.iw===z.iw&&q.id===z.id)) sizes.push({iw:z.iw,id:z.id});
-    sizes.sort((a,b)=>b.iw*b.id-a.iw*a.id);
-    const cutOf=r=>r.ls.reduce((t,l)=>t+l.o.cuts.reduce((s,c)=>s+c.mm,0),0); let pick=null;
-    for(const z of sizes){ const r2=try3({cw:z.iw,cd:z.id,ps:null}); if(!r2 || !r2.ls.every(l=>l.o.persons===(TI.ps||want))) continue;
-      if(!pick || cutOf(r2)<cutOf(pick)) pick=r2; if(!cutOf(pick)) break; }   // largest common car without cutting, else the least cutting
-    if(pick) res=pick; }
-  const lifts=res.ls.map(l=>({o:l.o,x0:l.x0}));
-  const openings=al.op.map(([a,b],k)=>{ const fc=s=>lifts[k].o.frontCuts.find(c=>c.side===s)?.mm||0; return {a:Math.round(a),b:Math.round(b),cutA:fc('L'),cutB:fc('R')}; });
-  const R={W:al.W,D,I:{...base,W:al.W,SL:openings[0].a,SR:al.W-openings[2].b},lifts,openings,beams:[{x:res.b1,w:bw},{x:res.b2,w:bw}],beam:{x:res.b1,w:bw},triplex:true,main:lifts[0].o,
-    notes:note?[{t:note,c:'warn'}]:[]};
-  // per floor: frame edges against that floor's openings
-  const fr=lifts.map(({o,x0})=>[x0+o.o1-P.jamb, x0+o.o1+o.clear+P.jamb]);
-  const floors=rows.map((r,i)=>{ const e=al.S[i];
-    return {fl:r.fl, err:e.err, shift:al.shifts[i], W:Math.round(e.w1-e.w0), lifts:fr.map(([fa,fb],k)=>{ const [oa,ob]=e.op[k]; return {gL:Math.round(fa-oa), gR:Math.round(ob-fb)}; })}; });
-  return {R, al, floors, D, need, cfg};
-}
-// guideline vs measured: every element of the front, per floor
-function triGuideRows(TI){
-  const g=TI.guide;
-  return TI.floors.map(r=>({fl:r.fl,use:r.use, v:[[+r.C,g.sh],[r.D-r.C,g.op],[+r.E,g.pil],[+r.F,g.op],[+r.G,g.pil],[r.H-r.I,g.op],[+r.I,g.sh],[+r.B,g.W]]}));
-}
-
 /* ---- the triplex screen ---- */
 const TRI_COLS=['fl','A','B','C','D','E','F','G','H','I'];
 const TRI_HEAD=['קומה','A עומק','B רוחב','C כתף ימין','D קיר לעמוד ימין','E עמוד ימין','F פתח אמצע','G עמוד שמאל','H קיר לעמוד שמאל','I כתף שמאל'];
